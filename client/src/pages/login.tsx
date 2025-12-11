@@ -69,6 +69,12 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col items-center justify-center">
         <TiraLogoFull className="mb-8" />
         
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 mb-6">
+          <p className="text-xs text-primary font-medium text-center">
+            Demo Mode - Leadership Preview
+          </p>
+        </div>
+        
         <h1 className="text-2xl font-bold mb-2 text-center">Welcome to TIRA</h1>
         <p className="text-muted-foreground mb-8 text-center">India's Beauty Destination</p>
 

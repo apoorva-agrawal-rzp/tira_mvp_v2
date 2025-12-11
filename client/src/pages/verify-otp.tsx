@@ -159,9 +159,15 @@ export default function VerifyOTPPage() {
       </Button>
 
       <h1 className="text-2xl font-bold mb-2">Verify OTP</h1>
-      <p className="text-muted-foreground mb-8">
+      <p className="text-muted-foreground mb-4">
         Enter the 4-digit code sent to +91 {maskedPhone}
       </p>
+      
+      <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-6">
+        <p className="text-sm text-primary font-medium text-center">
+          Demo Mode: Use OTP <span className="font-bold text-lg">1234</span>
+        </p>
+      </div>
 
       <div className="flex justify-center gap-3 mb-6">
         {otp.map((digit, index) => (
