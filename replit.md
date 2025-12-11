@@ -84,10 +84,14 @@ The backend acts as a proxy to external MCP tools. Tool names are mapped from fr
 
 ### UI/UX Improvements
 - **Bottom Navigation**: Changed "Bids" label to "Wishlist" for better user understanding
-- **Search Optimization**: Uses pagination (20 items max per request, displays 8 initially) with infinite scroll to reduce MCP rate throttling
+- **Search Optimization**: Fetches 50 products max per request, displays 12 initially with infinite scroll
 - **Product Detail Page**: Enhanced with image carousel, navigation dots, product features icons (Free Delivery, Genuine Product, COD Available), and improved layout
 - **Homepage Redesign**: Added "Buy at Your Own Price" hero section, category tiles, trending products carousel, and "How it Works" section
 - **Bid Card Updates**: Uses ProductImage component with proper overflow handling
+- **Reserve Pay UI**: Mandates now displayed in bottom sheet drawer for cleaner UI, added cancel setup button, QR placeholder with intent link
+- **Cart Page**: Added `/account/cart` route for viewing and managing cart items
+- **Address Fetching**: Auto-fetches saved addresses when address page opens using get_address MCP tool
+- **Account Details**: Auto-fetches user name, email, phone from session on account page load
 
 ### Key Files
 - `server/routes.ts` - Backend API routes including image proxy and MCP tool invocation
@@ -96,4 +100,7 @@ The backend acts as a proxy to external MCP tools. Tool names are mapped from fr
 - `client/src/pages/product-detail.tsx` - Product detail page with image carousel
 - `client/src/pages/search.tsx` - Search page with infinite scroll
 - `client/src/pages/home.tsx` - Redesigned homepage with categories and trending products
+- `client/src/pages/payment-methods.tsx` - Reserve Pay mandate management with drawer for active mandates
+- `client/src/pages/cart.tsx` - Cart page for viewing and removing items
+- `client/src/pages/addresses.tsx` - Address management with API fetching
 - `client/src/lib/mcp-parser.ts` - Parser for MCP markdown responses
