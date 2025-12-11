@@ -113,25 +113,52 @@ export default function VerifyOTPPage() {
         result.f_session || 
         '';
       
-      // Extract user info from various possible response formats
-      const authUserInfo = result.authentication?.user_info;
-      const responseUser = result.response?.user;
-      const directUser = result.user;
-      const firstName = authUserInfo?.first_name || responseUser?.first_name || directUser?.first_name || directUser?.name?.split(' ')[0] || result.name || '';
-      const lastName = authUserInfo?.last_name || responseUser?.last_name || directUser?.last_name || '';
-      const email = authUserInfo?.emails?.[0]?.email || responseUser?.emails?.[0]?.email || directUser?.email || result.email || '';
-      const fullName = lastName ? `${firstName} ${lastName}` : firstName;
-
+      // Store session first
       setSession(sessionCookie);
+
+      // Now call check_user_session to get proper user details
+      let userName = '';
+      let userEmail = '';
+      try {
+        const userSession = await invoke<{
+          user?: {
+            first_name?: string;
+            last_name?: string;
+            name?: string;
+            email?: string;
+            emails?: Array<{ email?: string }>;
+          };
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+        }>('check_user_session', {
+          cookies: sessionCookie,
+        });
+
+        const firstName = userSession.user?.first_name || userSession.first_name || '';
+        const lastName = userSession.user?.last_name || userSession.last_name || '';
+        userEmail = userSession.user?.emails?.[0]?.email || userSession.user?.email || userSession.email || '';
+        userName = lastName ? `${firstName} ${lastName}` : firstName;
+      } catch {
+        // Fall back to data from verify_otp response
+        const authUserInfo = result.authentication?.user_info;
+        const responseUser = result.response?.user;
+        const directUser = result.user;
+        const firstName = authUserInfo?.first_name || responseUser?.first_name || directUser?.first_name || directUser?.name?.split(' ')[0] || result.name || '';
+        const lastName = authUserInfo?.last_name || responseUser?.last_name || directUser?.last_name || '';
+        userEmail = authUserInfo?.emails?.[0]?.email || responseUser?.emails?.[0]?.email || directUser?.email || result.email || '';
+        userName = lastName ? `${firstName} ${lastName}` : firstName;
+      }
+
       setUser({
         phone: phone || '',
-        name: fullName,
-        email: email,
+        name: userName,
+        email: userEmail,
       });
 
       toast({
         title: 'Welcome!',
-        description: `You have been logged in successfully${fullName ? `, ${fullName}` : ''}`,
+        description: `You have been logged in successfully${userName ? `, ${userName}` : ''}`,
       });
 
       setLocation('/home');

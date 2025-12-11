@@ -35,23 +35,29 @@ export default function WishlistPage() {
       });
 
       if (result.bids) {
-        const mappedBids: PriceBid[] = result.bids.map((b: Record<string, unknown>) => ({
-          id: (b.id || b.bidId || String(Date.now())) as string,
-          bidId: b.bidId as string | undefined,
-          monitorId: b.monitorId as string | undefined,
-          product: {
-            name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
-            brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
-            image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
-            slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
-          },
-          bidPrice: (b.bidPrice || b.targetPrice) as number,
-          currentPrice: (b.currentPrice || b.purchasePrice) as number,
-          status: (b.status || 'monitoring') as PriceBid['status'],
-          createdAt: (b.createdAt || new Date().toISOString()) as string,
-          completedAt: b.completedAt as string | undefined,
-          orderId: b.orderId as string | undefined,
-        }));
+        const mappedBids: PriceBid[] = result.bids.map((b: Record<string, unknown>) => {
+          // Extract monitorId from various possible response paths
+          const monitorId = (b.monitorId || b.monitor_id || b.priceMonitorId || 
+            (b.monitor as { id?: string })?.id || b.bidId) as string | undefined;
+          
+          return {
+            id: (b.id || b.bidId || String(Date.now())) as string,
+            bidId: b.bidId as string | undefined,
+            monitorId: monitorId,
+            product: {
+              name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+              brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+              image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+              slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+            },
+            bidPrice: (b.bidPrice || b.targetPrice) as number,
+            currentPrice: (b.currentPrice || b.purchasePrice) as number,
+            status: (b.status || 'monitoring') as PriceBid['status'],
+            createdAt: (b.createdAt || new Date().toISOString()) as string,
+            completedAt: b.completedAt as string | undefined,
+            orderId: b.orderId as string | undefined,
+          };
+        });
         setBids(mappedBids);
       }
     } catch (err) {
@@ -63,31 +69,33 @@ export default function WishlistPage() {
 
   const handleRemoveBid = async (bid: PriceBid) => {
     try {
-      // Use bidId if available (for price bids), otherwise use monitorId (for monitors)
-      if (bid.bidId) {
-        // Try to remove the price bid
-        await invoke('tira_delete_price_monitor', {
-          monitorId: bid.bidId,
-        });
-      } else if (bid.monitorId) {
-        // Fall back to deleting by monitorId
+      // Use monitorId for deletion if available
+      if (bid.monitorId) {
         await invoke('tira_delete_price_monitor', {
           monitorId: bid.monitorId,
         });
+        removeBid(bid.id);
+        toast({
+          title: 'Removed from Wishlist',
+          description: 'Your price tracking has been cancelled',
+        });
+      } else {
+        // No monitorId - remove from local state only with warning
+        removeBid(bid.id);
+        toast({
+          title: 'Removed from Wishlist',
+          description: 'Item removed locally. Price tracking may still be active on server.',
+          variant: 'default',
+        });
       }
-      
-      removeBid(bid.id);
-      toast({
-        title: 'Removed from Wishlist',
-        description: 'Your price tracking has been cancelled',
-      });
     } catch (err) {
       console.error('Failed to remove bid:', err);
-      // Still remove from local state if API fails
+      // Still remove from local state if API fails - user can refresh to sync
       removeBid(bid.id);
       toast({
         title: 'Removed from Wishlist',
-        description: 'Item removed locally',
+        description: 'Could not sync with server. Please refresh to verify.',
+        variant: 'destructive',
       });
     }
   };

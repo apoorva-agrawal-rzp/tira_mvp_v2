@@ -50,6 +50,7 @@ export default function PaymentMethodsPage() {
   const [isPolling, setIsPolling] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [showAddNewMandate, setShowAddNewMandate] = useState(false);
+  const [pollingBaselineTokenIds, setPollingBaselineTokenIds] = useState<Set<string>>(new Set());
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { user, session, mandate, setMandate, setCustomerId: storeSetCustomerId } = useAppStore();
@@ -208,6 +209,11 @@ export default function PaymentMethodsPage() {
       const intentLink = paymentResult.upi_link || paymentResult.short_url;
       const qrImageUrl = paymentResult.qr_code || paymentResult.qr_code_url;
       
+      // Capture current token IDs and statuses as baseline before polling
+      const baselineTokenIds = new Set(allTokens.map(t => t.id));
+      const baselineTokenStatuses = new Map(allTokens.map(t => [t.id, t.recurring_details?.status || t.status || '']));
+      setPollingBaselineTokenIds(baselineTokenIds);
+
       setQrData({
         intentLink,
         qrCode: intentLink,
@@ -215,7 +221,7 @@ export default function PaymentMethodsPage() {
       });
 
       setIsPolling(true);
-      pollMandateStatus();
+      pollMandateStatus(baselineTokenIds, baselineTokenStatuses);
       
       toast({
         title: 'QR Generated',
@@ -234,11 +240,9 @@ export default function PaymentMethodsPage() {
     }
   };
 
-  const pollMandateStatus = async () => {
+  const pollMandateStatus = async (baselineTokenIds: Set<string>, baselineTokenStatuses: Map<string, string>) => {
     let attempts = 0;
     const maxAttempts = 60;
-    const initialTokenIds = new Set(allTokens.map(t => t.id));
-    const initialTokenCount = allTokens.length;
     
     const poll = async () => {
       if (attempts >= maxAttempts) {
@@ -265,13 +269,15 @@ export default function PaymentMethodsPage() {
           t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
         );
         
-        // Check for new tokens - either count increased or new token IDs
-        const newTokenDetected = confirmedTokens.length > initialTokenCount ||
-          confirmedTokens.some(t => !initialTokenIds.has(t.id));
+        // Check for new token IDs OR status changes (handles replacements and confirmations)
+        const newToken = confirmedTokens.find(t => {
+          const isNewId = !baselineTokenIds.has(t.id);
+          const statusChanged = baselineTokenStatuses.get(t.id) !== 'confirmed' && 
+            (t.recurring_details?.status === 'confirmed' || t.status === 'confirmed');
+          return isNewId || statusChanged;
+        });
         
-        if (newTokenDetected && confirmedTokens.length > 0) {
-          // Find the newest token (one that wasn't in initial set)
-          const newToken = confirmedTokens.find(t => !initialTokenIds.has(t.id)) || confirmedTokens[0];
+        if (newToken) {
           const mappedToken: MandateToken = {
             id: newToken.id,
             customer_id: result.customer?.id || customerId || '',
