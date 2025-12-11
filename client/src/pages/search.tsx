@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { BottomNav } from '@/components/bottom-nav';
 import { ProductCard, ProductCardSkeleton } from '@/components/product-card';
@@ -8,7 +8,7 @@ import { useMCP } from '@/hooks/use-mcp';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
-import { ArrowLeft, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Search, X, SlidersHorizontal, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -16,6 +16,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+const INITIAL_PRODUCTS = 8;
+const LOAD_MORE_COUNT = 8;
+const MAX_PRODUCTS_PER_REQUEST = 20;
 
 const sortOptions = [
   { value: 'relevance', label: 'Relevance' },
@@ -26,14 +30,18 @@ const sortOptions = [
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [hasSearched, setHasSearched] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
   const { invoke } = useMCP();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
@@ -55,21 +63,55 @@ export default function SearchPage() {
     try {
       const result = await invoke<unknown>('get_products', {
         query: searchQuery,
-        limit: 20,
+        limit: MAX_PRODUCTS_PER_REQUEST,
       });
 
       const mappedProducts = parseMCPProductResponse(result);
-      console.log('[Search] Parsed products:', mappedProducts.length);
-      // Cache products for use in product detail page
       cacheProducts(mappedProducts);
-      setProducts(mappedProducts);
+      setAllProducts(mappedProducts);
+      setDisplayedProducts(mappedProducts.slice(0, INITIAL_PRODUCTS));
+      setHasMore(mappedProducts.length > INITIAL_PRODUCTS);
     } catch (err) {
       console.error('Search failed:', err);
-      setProducts([]);
+      setAllProducts([]);
+      setDisplayedProducts([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
   };
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    
+    setTimeout(() => {
+      const currentCount = displayedProducts.length;
+      const sortedAll = getSortedProducts(allProducts);
+      const nextProducts = sortedAll.slice(0, currentCount + LOAD_MORE_COUNT);
+      setDisplayedProducts(nextProducts);
+      setHasMore(nextProducts.length < sortedAll.length);
+      setLoadingMore(false);
+    }, 300);
+  }, [displayedProducts, allProducts, hasMore, loadingMore, sortBy]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadingMore]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,26 +123,39 @@ export default function SearchPage() {
 
   const handleClear = () => {
     setQuery('');
-    setProducts([]);
+    setAllProducts([]);
+    setDisplayedProducts([]);
     setHasSearched(false);
+    setHasMore(false);
     searchInputRef.current?.focus();
   };
 
-  const sortedProducts = [...products].sort((a, b) => {
-    const priceA = a.price?.effective?.min || a.effectivePrice || 0;
-    const priceB = b.price?.effective?.min || b.effectivePrice || 0;
-    
-    switch (sortBy) {
-      case 'price_low':
-        return priceA - priceB;
-      case 'price_high':
-        return priceB - priceA;
-      case 'rating':
-        return (b.rating || 0) - (a.rating || 0);
-      default:
-        return 0;
+  const getSortedProducts = (products: Product[]) => {
+    return [...products].sort((a, b) => {
+      const priceA = a.price?.effective?.min || a.effectivePrice || 0;
+      const priceB = b.price?.effective?.min || b.effectivePrice || 0;
+      
+      switch (sortBy) {
+        case 'price_low':
+          return priceA - priceB;
+        case 'price_high':
+          return priceB - priceA;
+        case 'rating':
+          return (b.rating || 0) - (a.rating || 0);
+        default:
+          return 0;
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      const sortedAll = getSortedProducts(allProducts);
+      setDisplayedProducts(sortedAll.slice(0, displayedProducts.length || INITIAL_PRODUCTS));
     }
-  });
+  }, [sortBy]);
+
+  const sortedDisplayed = getSortedProducts(displayedProducts);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -142,10 +197,10 @@ export default function SearchPage() {
         </form>
       </header>
 
-      {hasSearched && products.length > 0 && (
+      {hasSearched && allProducts.length > 0 && (
         <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-border bg-muted/30">
           <span className="text-sm text-muted-foreground">
-            {products.length} result{products.length !== 1 ? 's' : ''}
+            {allProducts.length} product{allProducts.length !== 1 ? 's' : ''}
           </span>
           
           <DropdownMenu>
@@ -174,16 +229,39 @@ export default function SearchPage() {
       <div className="p-4">
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <ProductCardSkeleton key={i} />
             ))}
           </div>
-        ) : sortedProducts.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {sortedProducts.map((product) => (
-              <ProductCard key={product.slug} product={product} />
-            ))}
-          </div>
+        ) : sortedDisplayed.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {sortedDisplayed.map((product) => (
+                <ProductCard key={product.slug} product={product} />
+              ))}
+            </div>
+            
+            {hasMore && (
+              <div ref={loadMoreRef} className="py-8 flex justify-center">
+                {loadingMore ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Loading more...</span>
+                  </div>
+                ) : (
+                  <Button variant="outline" onClick={loadMore}>
+                    Load More
+                  </Button>
+                )}
+              </div>
+            )}
+            
+            {!hasMore && displayedProducts.length > INITIAL_PRODUCTS && (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                Showing all {allProducts.length} products
+              </p>
+            )}
+          </>
         ) : hasSearched ? (
           <div className="text-center py-16">
             <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

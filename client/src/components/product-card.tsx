@@ -1,7 +1,9 @@
 import { useLocation } from 'wouter';
 import type { Product } from '@shared/schema';
-import { Star } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ProductImage } from '@/components/product-image';
+import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
   product: Product;
@@ -26,35 +28,33 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
     return (
       <button
         onClick={handleClick}
-        className="w-40 flex-shrink-0 text-left group bg-white dark:bg-card"
+        className="w-44 flex-shrink-0 text-left group bg-white dark:bg-card rounded-lg overflow-hidden"
         data-testid={`product-card-compact-${product.slug}`}
       >
-        <div className="bg-neutral-50 dark:bg-muted aspect-square mb-3 overflow-hidden relative">
-          {imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt={product.name} 
-              className="w-full h-full object-contain p-2"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full bg-neutral-100 dark:bg-muted flex items-center justify-center">
-              <span className="text-neutral-400 text-xs">No image</span>
-            </div>
+        <div className="relative">
+          <ProductImage
+            src={imageUrl}
+            alt={product.name}
+            aspectRatio="square"
+            className="w-full"
+          />
+          {hasDiscount && discountPercent >= 10 && (
+            <span className="absolute top-2 left-2 bg-primary text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+              {discountPercent}% OFF
+            </span>
           )}
         </div>
-        {brandName && (
-          <p className="text-[11px] text-neutral-500 dark:text-muted-foreground mb-0.5 uppercase tracking-wide">{brandName}</p>
-        )}
-        <p className="text-sm text-neutral-900 dark:text-foreground line-clamp-2 leading-snug mb-1.5">{product.name}</p>
-        <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-sm font-semibold text-neutral-900 dark:text-foreground">₹{effectivePrice.toLocaleString()}</span>
-          {hasDiscount && (
-            <>
-              <span className="text-xs text-neutral-400 dark:text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
-              <span className="text-xs text-primary font-medium">({discountPercent}% Off)</span>
-            </>
+        <div className="p-2">
+          {brandName && (
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide truncate">{brandName}</p>
           )}
+          <p className="text-sm text-foreground line-clamp-2 leading-tight mb-1.5 min-h-[2.5em]">{product.name}</p>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-sm font-semibold text-foreground">₹{effectivePrice.toLocaleString()}</span>
+            {hasDiscount && (
+              <span className="text-[10px] text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+            )}
+          </div>
         </div>
       </button>
     );
@@ -63,44 +63,49 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
   return (
     <button
       onClick={handleClick}
-      className="bg-white dark:bg-card overflow-hidden text-left w-full group"
+      className="bg-white dark:bg-card overflow-hidden text-left w-full group rounded-lg border border-border/50"
       data-testid={`product-card-${product.slug}`}
     >
-      <div className="aspect-[3/4] overflow-hidden relative bg-neutral-50 dark:bg-muted">
-        {imageUrl ? (
-          <img 
-            src={imageUrl} 
-            alt={product.name} 
-            className="w-full h-full object-contain p-3"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full bg-neutral-100 dark:bg-muted flex items-center justify-center">
-            <span className="text-neutral-400 text-sm">No image</span>
-          </div>
+      <div className="relative">
+        <ProductImage
+          src={imageUrl}
+          alt={product.name}
+          aspectRatio="3/4"
+          className="w-full"
+        />
+        {hasDiscount && discountPercent >= 10 && (
+          <span className="absolute top-2 left-2 bg-primary text-white text-xs font-medium px-2 py-0.5 rounded">
+            {discountPercent}% OFF
+          </span>
         )}
+        <button 
+          className="absolute top-2 right-2 w-8 h-8 bg-white/80 dark:bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Heart className="w-4 h-4 text-muted-foreground" />
+        </button>
       </div>
-      <div className="py-3">
+      <div className="p-3">
         {brandName && (
-          <p className="text-[11px] text-neutral-500 dark:text-muted-foreground mb-0.5 uppercase tracking-wide">{brandName}</p>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-0.5">{brandName}</p>
         )}
-        <p className="text-sm text-neutral-900 dark:text-foreground line-clamp-2 leading-snug mb-1.5 min-h-[2.5em]">{product.name}</p>
+        <p className="text-sm text-foreground line-clamp-2 leading-snug mb-1.5 min-h-[2.5em]">{product.name}</p>
         
         {product.rating && (
           <div className="flex items-center gap-1 mb-1.5">
-            <span className="text-xs font-medium text-neutral-700 dark:text-foreground">{product.rating}</span>
+            <span className="text-xs font-medium text-foreground">{product.rating}</span>
             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             {product.ratingCount && (
-              <span className="text-xs text-neutral-400 dark:text-muted-foreground">| {product.ratingCount}</span>
+              <span className="text-xs text-muted-foreground">| {product.ratingCount}</span>
             )}
           </div>
         )}
         
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="font-semibold text-neutral-900 dark:text-foreground">₹{effectivePrice.toLocaleString()}</span>
+          <span className="font-semibold text-foreground">₹{effectivePrice.toLocaleString()}</span>
           {hasDiscount && (
             <>
-              <span className="text-sm text-neutral-400 dark:text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+              <span className="text-sm text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
               <span className="text-sm text-primary font-medium">({discountPercent}% Off)</span>
             </>
           )}
@@ -113,19 +118,21 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
 export function ProductCardSkeleton({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <div className="w-40 flex-shrink-0">
-        <Skeleton className="aspect-square mb-3" />
-        <Skeleton className="h-3 w-16 mb-1" />
-        <Skeleton className="h-4 w-full mb-1" />
-        <Skeleton className="h-4 w-20" />
+      <div className="w-44 flex-shrink-0 bg-white dark:bg-card rounded-lg overflow-hidden">
+        <Skeleton className="aspect-square" />
+        <div className="p-2">
+          <Skeleton className="h-3 w-16 mb-1" />
+          <Skeleton className="h-4 w-full mb-1" />
+          <Skeleton className="h-4 w-20" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden">
+    <div className="bg-white dark:bg-card overflow-hidden rounded-lg border border-border/50">
       <Skeleton className="aspect-[3/4]" />
-      <div className="py-3">
+      <div className="p-3">
         <Skeleton className="h-3 w-16 mb-1" />
         <Skeleton className="h-4 w-full mb-1" />
         <Skeleton className="h-4 w-3/4 mb-2" />

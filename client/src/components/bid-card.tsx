@@ -1,9 +1,10 @@
 import { useLocation } from 'wouter';
 import type { PriceBid } from '@shared/schema';
-import { RefreshCw, CheckCircle2, Tag, Trash2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ProductImage } from '@/components/product-image';
 
 interface BidCardProps {
   bid: PriceBid;
@@ -29,17 +30,12 @@ export function BidCard({ bid, onRemove, completed }: BidCardProps) {
             onClick={handleProductClick}
             className="flex-shrink-0"
           >
-            {bid.product?.image ? (
-              <img
-                src={bid.product.image}
-                alt={bid.product.name}
-                className="w-20 h-20 rounded-lg object-cover bg-muted"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center">
-                <Tag className="w-8 h-8 text-muted-foreground" />
-              </div>
-            )}
+            <ProductImage
+              src={bid.product?.image}
+              alt={bid.product?.name || 'Product'}
+              className="w-20 h-20 rounded-lg"
+              aspectRatio="square"
+            />
           </button>
           
           <div className="flex-1 min-w-0">
@@ -96,7 +92,7 @@ export function BidCard({ bid, onRemove, completed }: BidCardProps) {
             data-testid={`remove-bid-${bid.id}`}
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            Remove Bid
+            Remove from Wishlist
           </Button>
         </div>
       )}

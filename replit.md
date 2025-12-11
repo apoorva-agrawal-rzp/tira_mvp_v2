@@ -75,3 +75,25 @@ The backend acts as a proxy to external MCP tools. Tool names are mapped from fr
 - **Vite**: Frontend build tool with React plugin
 - **esbuild**: Server bundling for production
 - **TSX**: TypeScript execution for development server
+
+## Recent Changes (December 2024)
+
+### Image Loading System
+- **Image Proxy Endpoint** (`/api/image-proxy`): Backend proxy using Node.js stream `pipeline` with `AbortController` to handle CORS issues with TIRA CDN images (`cdn.tiraz5.de`). Includes proper timeout handling and prevents ERR_HTTP_HEADERS_SENT crashes.
+- **ProductImage Component** (`client/src/components/product-image.tsx`): Reusable component with fallback strategies, error states, and proxy-based loading for external images.
+
+### UI/UX Improvements
+- **Bottom Navigation**: Changed "Bids" label to "Wishlist" for better user understanding
+- **Search Optimization**: Uses pagination (20 items max per request, displays 8 initially) with infinite scroll to reduce MCP rate throttling
+- **Product Detail Page**: Enhanced with image carousel, navigation dots, product features icons (Free Delivery, Genuine Product, COD Available), and improved layout
+- **Homepage Redesign**: Added "Buy at Your Own Price" hero section, category tiles, trending products carousel, and "How it Works" section
+- **Bid Card Updates**: Uses ProductImage component with proper overflow handling
+
+### Key Files
+- `server/routes.ts` - Backend API routes including image proxy and MCP tool invocation
+- `client/src/components/product-image.tsx` - Reusable image component with fallbacks
+- `client/src/components/product-card.tsx` - Product card for search results
+- `client/src/pages/product-detail.tsx` - Product detail page with image carousel
+- `client/src/pages/search.tsx` - Search page with infinite scroll
+- `client/src/pages/home.tsx` - Redesigned homepage with categories and trending products
+- `client/src/lib/mcp-parser.ts` - Parser for MCP markdown responses

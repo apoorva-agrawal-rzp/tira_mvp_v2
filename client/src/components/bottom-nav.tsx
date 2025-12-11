@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { id: 'home', icon: Home, label: 'Home', path: '/home' },
   { id: 'search', icon: Search, label: 'Search', path: '/search' },
-  { id: 'wishlist', icon: Heart, label: 'Bids', path: '/wishlist' },
+  { id: 'wishlist', icon: Heart, label: 'Wishlist', path: '/wishlist' },
   { id: 'orders', icon: Package, label: 'Orders', path: '/orders' },
   { id: 'account', icon: User, label: 'Account', path: '/account' },
 ];

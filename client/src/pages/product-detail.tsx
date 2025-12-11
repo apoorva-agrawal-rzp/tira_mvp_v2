@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { LoadingScreen } from '@/components/loading-screen';
 import { PriceBidSheet } from '@/components/price-bid-sheet';
+import { ProductImage, ProductImageCarousel } from '@/components/product-image';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
@@ -19,33 +21,43 @@ import {
   Truck, 
   RefreshCw,
   Tag,
-  ChevronLeft,
-  ChevronRight
+  Package,
+  ShieldCheck,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface ExtendedProduct extends Product {
+  availability?: string;
+  stockCount?: number;
+  size?: string;
+  returnPolicy?: string;
+  codAvailable?: boolean;
+  deliveryEstimate?: string;
+  store?: string;
+  seller?: string;
+  specifications?: Record<string, string>;
+}
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<ExtendedProduct | null>(null);
   const [cachedImages, setCachedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const { invoke } = useMCP();
-  const { session, addToCart } = useAppStore();
+  const { session, user, addToCart } = useAppStore();
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchProduct = async () => {
       if (!slug) return;
       
-      // First, try to get cached product from search results (has images)
       const cached = getCachedProduct(slug);
       if (cached) {
-        // Extract images from cached product
         const cachedImgUrls = cached.images?.map(i => i.url) || [];
         if (cachedImgUrls.length > 0) {
           setCachedImages(cachedImgUrls);
@@ -54,21 +66,17 @@ export default function ProductDetailPage() {
       
       setLoading(true);
       try {
-        const result = await invoke<unknown>('tira_get_product_by_slug', {
-          slug,
-        });
+        const result = await invoke<unknown>('tira_get_product_by_slug', { slug });
 
-        let parsedProduct: Product | null = null;
+        let parsedProduct: ExtendedProduct | null = null;
 
-        // Handle markdown string response
         if (typeof result === 'string') {
           const parsed = parseProductDetailMarkdown(result);
           if (parsed) {
             parsed.slug = parsed.slug || slug;
-            parsedProduct = parsed;
+            parsedProduct = parsed as ExtendedProduct;
           }
         } else if (typeof result === 'object' && result !== null) {
-          // Handle JSON response (fallback)
           const data = result as Record<string, unknown>;
           const p = data.product ? (data.product as Record<string, unknown>) : data;
           
@@ -94,35 +102,22 @@ export default function ProductDetailPage() {
           }
         }
 
-        // Merge with cached data - use cached for missing fields
         if (parsedProduct) {
-          // If API didn't return itemId/articleId, use cached values
           if (cached) {
-            if (!parsedProduct.itemId && cached.itemId) {
-              parsedProduct.itemId = cached.itemId;
-            }
-            if (!parsedProduct.articleId && cached.articleId) {
-              parsedProduct.articleId = cached.articleId;
-            }
-            if (!parsedProduct.brandName && cached.brandName) {
-              parsedProduct.brandName = cached.brandName;
-            }
-            if (!parsedProduct.images?.length && cached.images?.length) {
-              parsedProduct.images = cached.images;
-            }
+            if (!parsedProduct.itemId && cached.itemId) parsedProduct.itemId = cached.itemId;
+            if (!parsedProduct.articleId && cached.articleId) parsedProduct.articleId = cached.articleId;
+            if (!parsedProduct.brandName && cached.brandName) parsedProduct.brandName = cached.brandName;
+            if (!parsedProduct.images?.length && cached.images?.length) parsedProduct.images = cached.images;
           }
           setProduct(parsedProduct);
-          // Update cache with merged product
           cacheProduct(parsedProduct);
         } else if (cached) {
-          // If API failed but we have cached data, use it
-          setProduct(cached);
+          setProduct(cached as ExtendedProduct);
         }
       } catch (err) {
         console.error('Failed to fetch product:', err);
-        // Try to use cached product as fallback
         if (cached) {
-          setProduct(cached);
+          setProduct(cached as ExtendedProduct);
         } else {
           toast({
             title: 'Failed to load product',
@@ -152,17 +147,16 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Use product images, or fall back to cached images from search results
   const productImages = product.images?.map(i => i.url) || product.medias?.map(m => m.url) || [];
   const images = productImages.length > 0 ? productImages : cachedImages;
-  const currentImage = images[currentImageIndex] || '';
   const brandName = product.brand?.name || product.brandName || 'TIRA';
   const effectivePrice = product.price?.effective?.min || product.effectivePrice || 0;
   const markedPrice = product.price?.marked?.min || product.markedPrice;
   const hasDiscount = markedPrice && markedPrice > effectivePrice;
+  const discountPercent = hasDiscount ? Math.round(((markedPrice - effectivePrice) / markedPrice) * 100) : 0;
 
   const handleAddToBag = async () => {
-    if (!session) {
+    if (!session || !user) {
       toast({
         title: 'Please login',
         description: 'Login to add items to your bag',
@@ -172,7 +166,6 @@ export default function ProductDetailPage() {
       return;
     }
 
-    // Validate required fields
     if (!product.itemId || !product.articleId) {
       toast({
         title: 'Product unavailable',
@@ -198,7 +191,7 @@ export default function ProductDetailPage() {
         articleId: product.articleId,
         name: product.name,
         brand: brandName,
-        image: currentImage,
+        image: images[0] || '',
         price: effectivePrice,
         quantity: 1,
       });
@@ -220,7 +213,7 @@ export default function ProductDetailPage() {
   };
 
   const handleBuyAtMyPrice = () => {
-    if (!session) {
+    if (!session || !user) {
       toast({
         title: 'Please login',
         description: 'Login to set a price bid',
@@ -230,7 +223,6 @@ export default function ProductDetailPage() {
       return;
     }
 
-    // Validate required fields for price bidding
     if (!product.itemId || !product.articleId) {
       toast({
         title: 'Product unavailable',
@@ -243,28 +235,13 @@ export default function ProductDetailPage() {
     setShowPriceBidSheet(true);
   };
 
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
-
   return (
     <div className="min-h-screen bg-background pb-28">
       <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-3 flex items-center justify-between border-b border-border">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
-            // Use browser history to preserve search query and state
-            if (window.history.length > 1) {
-              window.history.back();
-            } else {
-              setLocation('/search');
-            }
-          }}
+          onClick={() => window.history.length > 1 ? window.history.back() : setLocation('/search')}
           data-testid="button-back-product"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -285,64 +262,20 @@ export default function ProductDetailPage() {
         </div>
       </header>
 
-      <div className="relative bg-muted aspect-square">
-        {currentImage ? (
-          <img
-            src={currentImage}
-            alt={product.name}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Tag className="w-16 h-16 text-muted-foreground" />
-          </div>
-        )}
+      <div className="relative bg-white dark:bg-muted">
+        <ProductImageCarousel images={images} alt={product.name} />
         
-        {images.length > 1 && (
-          <>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80"
-              onClick={prevImage}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80"
-              onClick={nextImage}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-            
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentImageIndex(i)}
-                  className={cn(
-                    'w-2 h-2 rounded-full transition-colors',
-                    i === currentImageIndex ? 'bg-primary' : 'bg-white/50'
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
-        
-        {product.discount && (
-          <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-3 py-1 rounded-md text-sm font-semibold">
-            {product.discount}
-          </div>
+        {hasDiscount && (
+          <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
+            {discountPercent}% OFF
+          </Badge>
         )}
       </div>
 
       <div className="p-4 space-y-4">
         <div>
-          <p className="text-sm text-muted-foreground mb-1">{brandName}</p>
-          <h1 className="text-xl font-bold leading-tight">{product.name}</h1>
+          <p className="text-sm text-primary font-medium mb-1">{brandName}</p>
+          <h1 className="text-xl font-bold leading-tight text-foreground">{product.name}</h1>
         </div>
 
         {product.rating && (
@@ -360,22 +293,32 @@ export default function ProductDetailPage() {
         )}
 
         <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="text-2xl font-bold text-primary">₹{effectivePrice.toLocaleString()}</span>
+          <span className="text-2xl font-bold text-foreground">₹{effectivePrice.toLocaleString()}</span>
           {hasDiscount && (
             <>
               <span className="text-lg text-muted-foreground line-through">
                 ₹{markedPrice.toLocaleString()}
               </span>
               <span className="text-green-600 font-semibold text-sm">
-                {Math.round(((markedPrice - effectivePrice) / markedPrice) * 100)}% OFF
+                {discountPercent}% OFF
               </span>
             </>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Truck className="w-4 h-4" />
-          <span>Free Delivery on orders above ₹499</span>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center gap-1 p-3 bg-muted/50 rounded-lg">
+            <Truck className="w-5 h-5 text-primary" />
+            <span className="text-xs text-center text-muted-foreground">Free Delivery</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 p-3 bg-muted/50 rounded-lg">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            <span className="text-xs text-center text-muted-foreground">Genuine Product</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 p-3 bg-muted/50 rounded-lg">
+            <CreditCard className="w-5 h-5 text-primary" />
+            <span className="text-xs text-center text-muted-foreground">COD Available</span>
+          </div>
         </div>
 
         <div className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/30 dark:to-purple-950/30 rounded-xl p-4">
@@ -388,12 +331,38 @@ export default function ProductDetailPage() {
           </p>
         </div>
 
-        {product.description && (
+        {product.availability && (
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-green-600" />
+            <span className="text-sm text-green-600 font-medium">{product.availability}</span>
+          </div>
+        )}
+
+        {product.deliveryEstimate && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Truck className="w-4 h-4" />
+            <span>Delivery by: {product.deliveryEstimate}</span>
+          </div>
+        )}
+
+        {product.specifications && Object.keys(product.specifications).length > 0 && (
           <div className="border-t border-border pt-4">
-            <h3 className="font-semibold mb-2">Description</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {product.description}
-            </p>
+            <h3 className="font-semibold mb-3">Product Details</h3>
+            <div className="space-y-2">
+              {Object.entries(product.specifications).slice(0, 6).map(([key, value]) => (
+                <div key={key} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{key}</span>
+                  <span className="font-medium text-right max-w-[60%]">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {product.seller && (
+          <div className="border-t border-border pt-4">
+            <h3 className="font-semibold mb-2">Sold By</h3>
+            <p className="text-sm text-muted-foreground">{product.seller}</p>
           </div>
         )}
       </div>
@@ -429,7 +398,7 @@ export default function ProductDetailPage() {
             slug: product.slug,
             name: product.name,
             brand: brandName,
-            image: currentImage,
+            image: images[0] || '',
             price: effectivePrice,
             itemId: product.itemId,
             articleId: product.articleId,

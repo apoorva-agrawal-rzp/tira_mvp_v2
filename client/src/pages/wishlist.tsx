@@ -8,7 +8,7 @@ import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import type { PriceBid } from '@shared/schema';
-import { Tag, Search, Zap } from 'lucide-react';
+import { Heart, Search, Zap, Trash2 } from 'lucide-react';
 
 export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
@@ -71,12 +71,12 @@ export default function WishlistPage() {
       
       removeBid(bid.id);
       toast({
-        title: 'Bid removed',
+        title: 'Removed from Wishlist',
         description: 'Your price bid has been cancelled',
       });
     } catch (err) {
       toast({
-        title: 'Failed to remove bid',
+        title: 'Failed to remove',
         description: 'Please try again',
         variant: 'destructive',
       });
@@ -94,17 +94,26 @@ export default function WishlistPage() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-primary" />
-          <h1 className="text-xl font-bold">My Price Bids</h1>
+          <Heart className="w-5 h-5 text-primary" />
+          <h1 className="text-xl font-bold">My Wishlist</h1>
         </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          Products you're watching for price drops
+        </p>
       </header>
 
       <div className="p-4">
         {activeBids.length > 0 && (
           <section className="mb-6">
-            <h2 className="font-semibold text-muted-foreground mb-3">
-              Active Bids ({activeBids.length})
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-muted-foreground">
+                Watching ({activeBids.length})
+              </h2>
+              <div className="flex items-center gap-1 text-xs text-primary">
+                <Zap className="w-3 h-3" />
+                <span>Price monitoring active</span>
+              </div>
+            </div>
             <div className="space-y-3">
               {activeBids.map((bid) => (
                 <BidCard
@@ -120,7 +129,7 @@ export default function WishlistPage() {
         {completedBids.length > 0 && (
           <section className="mb-6">
             <h2 className="font-semibold text-muted-foreground mb-3">
-              Completed ({completedBids.length})
+              Purchased ({completedBids.length})
             </h2>
             <div className="space-y-3">
               {completedBids.map((bid) => (
@@ -132,12 +141,12 @@ export default function WishlistPage() {
 
         {activeBids.length === 0 && completedBids.length === 0 && (
           <div className="text-center py-16">
-            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <Tag className="w-10 h-10 text-muted-foreground" />
+            <div className="w-20 h-20 bg-pink-50 dark:bg-pink-950/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-10 h-10 text-pink-300" />
             </div>
-            <h3 className="font-semibold mb-2">No price bids yet</h3>
-            <p className="text-muted-foreground mb-6 text-sm">
-              Set your target price on any product and we'll notify you when it drops!
+            <h3 className="font-semibold mb-2">Your Wishlist is Empty</h3>
+            <p className="text-muted-foreground mb-6 text-sm max-w-xs mx-auto">
+              Set your target price on products and we'll notify you when prices drop!
             </p>
             <Button onClick={() => setLocation('/search')} data-testid="button-browse-products">
               <Search className="w-4 h-4 mr-2" />
