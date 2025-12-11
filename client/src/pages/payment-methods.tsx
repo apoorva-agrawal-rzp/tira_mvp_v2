@@ -16,20 +16,41 @@ import {
   RefreshCw,
   QrCode,
   ExternalLink,
-  Shield
+  Shield,
+  Wallet,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface TokenItem {
+  id: string;
+  status?: string;
+  max_amount?: number;
+  recurring_details?: {
+    amount_blocked?: number;
+    amount_debited?: number;
+    status?: string;
+  };
+  expired_at?: number;
+  created_at?: number;
+  vpa?: {
+    username?: string;
+    handle?: string;
+  };
+}
 
 export default function PaymentMethodsPage() {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<MandateToken | null>(null);
+  const [allTokens, setAllTokens] = useState<TokenItem[]>([]);
   const [maxAmount, setMaxAmount] = useState('5000');
   const [generatingQR, setGeneratingQR] = useState(false);
-  const [qrData, setQrData] = useState<{ qrCode?: string; intentLink?: string } | null>(null);
+  const [qrData, setQrData] = useState<{ qrCode?: string; intentLink?: string; qrImageUrl?: string } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
-  const { user, session, mandate, setMandate } = useAppStore();
+  const { user, session, mandate, setMandate, setCustomerId: storeSetCustomerId } = useAppStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,23 +65,43 @@ export default function PaymentMethodsPage() {
 
     setLoading(true);
     try {
-      const result = await invoke<{ items?: Array<Record<string, unknown>>; customer_id?: string }>('get_token_masked_data', {
+      const result = await invoke<{ 
+        customer?: { id?: string }; 
+        customer_id?: string;
+        saved_payment_methods?: { items?: TokenItem[] };
+        items?: TokenItem[];
+      }>('get_token_masked_data', {
         contact: user.phone,
       });
 
-      const tokens = result.items || [];
-      const confirmedToken = tokens.find((t: Record<string, unknown>) => t.status === 'confirmed');
+      // Get customer ID from response
+      const custId = result.customer?.id || result.customer_id;
+      if (custId) {
+        setCustomerId(custId);
+        storeSetCustomerId?.(custId);
+      }
+
+      // Get tokens from saved_payment_methods.items or items
+      const tokens: TokenItem[] = result.saved_payment_methods?.items || result.items || [];
       
-      if (confirmedToken) {
+      // Filter to confirmed tokens only
+      const confirmedTokens = tokens.filter((t) => 
+        t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
+      );
+      
+      // Store all tokens for display
+      setAllTokens(confirmedTokens);
+
+      // Set the first confirmed token as the active one
+      if (confirmedTokens.length > 0) {
+        const firstToken = confirmedTokens[0];
         const mappedToken: MandateToken = {
-          id: confirmedToken.id as string,
-          customer_id: (confirmedToken.customer_id || result.customer_id) as string,
-          status: confirmedToken.status as string,
-          max_amount: confirmedToken.max_amount as number | undefined,
-          amount_blocked: confirmedToken.amount_blocked as number | undefined,
-          amount_debited: confirmedToken.amount_debited as number | undefined,
-          created_at: confirmedToken.created_at as string | undefined,
-          expired_at: confirmedToken.expired_at as string | undefined,
+          id: firstToken.id,
+          customer_id: custId || '',
+          status: firstToken.recurring_details?.status || firstToken.status || 'unknown',
+          max_amount: firstToken.max_amount,
+          amount_blocked: firstToken.recurring_details?.amount_blocked,
+          amount_debited: firstToken.recurring_details?.amount_debited,
         };
         setToken(mappedToken);
         setMandate(mappedToken);
@@ -83,19 +124,46 @@ export default function PaymentMethodsPage() {
       return;
     }
 
+    if (!session) {
+      toast({
+        title: 'Login required',
+        description: 'Please login to setup Reserve Pay',
+        variant: 'destructive',
+      });
+      setLocation('/login');
+      return;
+    }
+
     setGeneratingQR(true);
     try {
-      const customerResult = await invoke<{ customer_id?: string; items?: Array<{ customer_id?: string }> }>('get_token_masked_data', {
-        contact: user?.phone,
-      });
-      
-      const customerId = customerResult.customer_id || customerResult.items?.[0]?.customer_id;
+      // First fetch customer ID if not already set
+      let custId = customerId;
+      if (!custId) {
+        const customerResult = await invoke<{ 
+          customer?: { id?: string }; 
+          customer_id?: string;
+        }>('get_token_masked_data', {
+          contact: user?.phone,
+        });
+        custId = customerResult.customer?.id || customerResult.customer_id || undefined;
+        if (custId) {
+          setCustomerId(custId);
+        }
+      }
 
-      const orderResult = await invoke<{ id: string }>('create_order_with_masked_data', {
+      // Create order with session cookie - this is required for authentication
+      const orderResult = await invoke<{ 
+        id?: string; 
+        order_id?: string;
+        razorpay_order_id?: string;
+        error?: boolean;
+        message?: string;
+      }>('create_order_with_masked_data', {
         amount: amount * 100,
         currency: 'INR',
-        customer_id: customerId,
+        customer_id: custId,
         method: 'upi',
+        session_cookie: session,
         token: {
           max_amount: amount * 100,
           frequency: 'as_presented',
@@ -103,31 +171,60 @@ export default function PaymentMethodsPage() {
         },
       });
 
-      const paymentResult = await invoke<{ upi_link?: string; short_url?: string }>('initiate_payment_with_masked_data', {
-        amount: 100,
-        order_id: orderResult.id,
-        customer_id: customerId,
+      // Check for error in response
+      if (orderResult.error) {
+        throw new Error(orderResult.message || 'Failed to create order');
+      }
+
+      const orderId = orderResult.id || orderResult.order_id || orderResult.razorpay_order_id;
+      
+      if (!orderId) {
+        throw new Error('No order ID returned');
+      }
+
+      // Initiate payment with the order ID
+      const paymentResult = await invoke<{ 
+        upi_link?: string; 
+        short_url?: string;
+        qr_code?: string;
+        qr_code_url?: string;
+        payment_details?: {
+          next?: Array<{ url?: string }>;
+        };
+      }>('initiate_payment_with_masked_data', {
+        amount: amount * 100,
+        order_id: orderId,
+        customer_id: custId,
         contact: user?.phone,
         recurring: true,
         upi_intent: true,
         force_terminal_id: 'term_RMD93ugGbBOhTp',
+        session_cookie: session,
       });
 
+      // Extract intent link and QR code from response
       const intentLink = paymentResult.upi_link || paymentResult.short_url;
+      const qrImageUrl = paymentResult.qr_code || paymentResult.qr_code_url;
       
       setQrData({
         intentLink,
         qrCode: intentLink,
+        qrImageUrl,
       });
 
       setIsPolling(true);
       pollMandateStatus();
       
+      toast({
+        title: 'QR Generated',
+        description: 'Scan with your UPI app or click the button below',
+      });
+      
     } catch (err) {
       console.error('Failed to generate QR:', err);
       toast({
         title: 'Failed to generate QR',
-        description: 'Please try again',
+        description: err instanceof Error ? err.message : 'Please try again',
         variant: 'destructive',
       });
     } finally {
@@ -138,6 +235,7 @@ export default function PaymentMethodsPage() {
   const pollMandateStatus = async () => {
     let attempts = 0;
     const maxAttempts = 60;
+    const initialTokenCount = allTokens.length;
     
     const poll = async () => {
       if (attempts >= maxAttempts) {
@@ -151,22 +249,33 @@ export default function PaymentMethodsPage() {
       }
 
       try {
-        const result = await invoke<{ items?: Array<Record<string, unknown>> }>('get_token_masked_data', {
+        const result = await invoke<{ 
+          customer?: { id?: string };
+          saved_payment_methods?: { items?: TokenItem[] };
+          items?: TokenItem[];
+        }>('get_token_masked_data', {
           contact: user?.phone,
         });
 
-        const tokens = result.items || [];
-        const confirmedToken = tokens.find((t: Record<string, unknown>) => t.status === 'confirmed');
+        const tokens: TokenItem[] = result.saved_payment_methods?.items || result.items || [];
+        const confirmedTokens = tokens.filter((t) => 
+          t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
+        );
         
-        if (confirmedToken) {
+        // Check if we have more confirmed tokens than before
+        if (confirmedTokens.length > initialTokenCount) {
+          const newToken = confirmedTokens[0];
           const mappedToken: MandateToken = {
-            id: confirmedToken.id as string,
-            customer_id: confirmedToken.customer_id as string,
-            status: confirmedToken.status as string,
-            max_amount: confirmedToken.max_amount as number | undefined,
+            id: newToken.id,
+            customer_id: result.customer?.id || customerId || '',
+            status: newToken.recurring_details?.status || newToken.status || 'confirmed',
+            max_amount: newToken.max_amount,
+            amount_blocked: newToken.recurring_details?.amount_blocked,
+            amount_debited: newToken.recurring_details?.amount_debited,
           };
           setToken(mappedToken);
           setMandate(mappedToken);
+          setAllTokens(confirmedTokens);
           setQrData(null);
           setIsPolling(false);
           toast({
@@ -180,10 +289,20 @@ export default function PaymentMethodsPage() {
       }
 
       attempts++;
-      setTimeout(poll, 2000);
+      setTimeout(poll, 3000);
     };
 
     poll();
+  };
+
+  // Helper to format date from timestamp
+  const formatDate = (timestamp?: number) => {
+    if (!timestamp) return 'N/A';
+    return new Date(timestamp * 1000).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   if (loading) {
@@ -352,6 +471,69 @@ export default function PaymentMethodsPage() {
             </li>
           </ul>
         </div>
+
+        {/* Existing Reserve Pay Tokens */}
+        {allTokens.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Your Reserve Pay Mandates</h3>
+            </div>
+            
+            {allTokens.map((t, idx) => {
+              const blocked = (t.recurring_details?.amount_blocked || t.max_amount || 0) / 100;
+              const debited = (t.recurring_details?.amount_debited || 0) / 100;
+              const remaining = blocked - debited;
+              const vpaDisplay = t.vpa ? `${t.vpa.username}@${t.vpa.handle}` : 'UPI';
+              const status = t.recurring_details?.status || t.status || 'unknown';
+              const isActive = status === 'confirmed';
+              
+              return (
+                <Card key={t.id} className="p-4" data-testid={`token-card-${idx}`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center",
+                        isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
+                      )}>
+                        {isActive ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{vpaDisplay}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isActive ? 'Active' : status}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Expires</p>
+                      <p className="text-xs font-medium">{formatDate(t.expired_at)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-muted/50 rounded-lg p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">Blocked</p>
+                      <p className="font-semibold text-sm">₹{blocked.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">Used</p>
+                      <p className="font-semibold text-sm">₹{debited.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">Available</p>
+                      <p className="font-semibold text-sm text-green-600">₹{remaining.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

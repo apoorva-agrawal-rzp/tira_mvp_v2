@@ -1,0 +1,108 @@
+Payment Tools Documentation
+Initiate Payment
+Tool Name: initiate_payment
+Purpose: Initiate a payment using the S2S JSON v1 flow with saved payment methods.
+Prompt: Use this when you need to start a payment process using a previously saved payment method (token) for a specific order.
+Request Parameters
+amount (required): Payment amount in smallest currency unit (e.g., for ₹100, use 10000)
+order_id (required): Order ID starting with 'order_'
+token (required): Token ID of saved payment method starting with 'token_'
+currency (optional): Currency code, defaults to 'INR'
+email (optional): Customer's email address
+contact (optional): Customer's phone number
+Response
+{
+  "available_actions": [
+    {
+      "action": "redirect",
+      "url": "https://api.razorpay.com/pg_router/v1/payments/XXXXXXXXXXXXXXX/authenticate"
+    },
+    {
+      "action": "otp_generate",
+      "url": "https://api.razorpay.com/pg_router/v1/payments/pay_XXXXXXXXXXXXXXX/otp_generate?key_id=rzp_live_XXXXXXXXXXXXXXX"
+    }
+  ],
+  "message": "Payment initiated. OTP authentication is available. Use the 'submit_otp' tool to submit OTP received by the customer for authentication.",
+  "next_step": "Use 'resend_otp' to regenerate OTP or 'submit_otp' to proceed to enter OTP.",
+  "next_tool": "resend_otp",
+  "next_tool_params": {
+    "payment_id": "pay_XXXXXXXXXXXXXXX"
+  },
+  "payment_details": {
+    "next": [
+      {
+        "action": "redirect",
+        "url": "https://api.razorpay.com/pg_router/v1/payments/XXXXXXXXXXXXXXX/authenticate"
+      },
+      {
+        "action": "otp_generate",
+        "url": "https://api.razorpay.com/pg_router/v1/payments/pay_XXXXXXXXXXXXXXX/otp_generate?key_id=rzp_live_XXXXXXXXXXXXXXX"
+      }
+    ],
+    "razorpay_payment_id": "pay_XXXXXXXXXXXXXXX"
+  },
+  "razorpay_payment_id": "pay_XXXXXXXXXXXXXXX",
+  "status": "payment_initiated"
+}
+
+
+
+Resend OTP
+Tool Name: resend_otp
+Purpose: Resend OTP to customer's registered mobile number for payment authentication.
+Prompt: Use this when the customer hasn't received the OTP or when the previous OTP has expired during payment authentication.
+Request Parameters
+payment_id (required): Payment ID starting with 'pay_'
+Response
+{
+  "payment_id": "pay_xxxxx",
+  "status": "success",
+  "message": "OTP sent successfully. Please enter the OTP received on your mobile number to complete the payment.",
+  "response_data": { /* OTP response from Razorpay */ },
+  "otp_submit_url": "https://api.razorpay.com/v1/payments/pay_xxxxx/otp/submit",
+  "next_step": "Use 'submit_otp' tool with the OTP code received from user",
+  "next_tool": "submit_otp",
+  "next_tool_params": {
+    "payment_id": "pay_xxxxx",
+    "otp_string": "{OTP_CODE_FROM_USER}"
+  }
+}
+
+
+
+Submit OTP
+Tool Name: submit_otp
+Purpose: Verify and submit the OTP received by customer to complete payment authentication.
+Prompt: Use this when the customer has received an OTP and needs to submit it to complete the payment authentication process.
+Request Parameters
+payment_id (required): Payment ID starting with 'pay_'
+otp_string (required): OTP code received by the customer
+Response
+{
+  "message": "OTP verified successfully.",
+  "payment_id": "pay_XXXXXXXXXXXXXXX",
+  "response_data": {
+    "razorpay_order_id": "order_XXXXXXXXXXXXXXX",
+    "razorpay_payment_id": "pay_XXXXXXXXXXXXXXX",
+    "razorpay_signature": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "status": "success"
+}
+
+Payment Flow Example
+Start Payment: Use initiate_payment with order_id, token, and amount
+If OTP Required: Response will indicate OTP authentication needed
+Resend if Needed: Use resend_otp if customer doesn't receive OTP
+Complete Payment: Use submit_otp with the OTP code from customer
+Error Handling
+All tools return error responses in this format:
+{
+  "error": "Error description here"
+}
+Common error scenarios:
+Invalid payment_id format
+Expired or invalid tokens
+Network connectivity issues
+Invalid OTP codes
+Payment already processed
+
