@@ -48,8 +48,12 @@ export default function AddressesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchAddresses();
-  }, []);
+    if (session) {
+      fetchAddresses();
+    } else {
+      setLoading(false);
+    }
+  }, [session]);
 
   const fetchAddresses = async () => {
     if (!session) {
@@ -59,28 +63,39 @@ export default function AddressesPage() {
 
     setLoading(true);
     try {
-      const result = await invoke<{ addresses?: Array<Record<string, unknown>>; address?: Array<Record<string, unknown>> }>('get_address', {
+      const result = await invoke<{ 
+        addresses?: Array<Record<string, unknown>>; 
+        address?: Array<Record<string, unknown>>;
+        saved_addresses?: Array<Record<string, unknown>>;
+      }>('get_address', {
         cookies: session,
       });
 
-      const addressList = result.addresses || result.address || [];
-      const mappedAddresses: Address[] = addressList.map((a: Record<string, unknown>) => ({
-        id: (a.id || a._id || String(Date.now())) as string,
+      console.log('Address API response:', result);
+
+      const addressList = result.addresses || result.address || result.saved_addresses || [];
+      const mappedAddresses: Address[] = addressList.map((a: Record<string, unknown>, idx: number) => ({
+        id: String(a.id || a._id || a.uid || `addr-${idx}`),
         uid: a.uid as number | undefined,
         name: a.name as string | undefined,
-        phone: a.phone as string | undefined,
-        address: a.address as string,
-        area: a.area as string,
+        phone: (a.phone || a.mobile) as string | undefined,
+        address: (a.address || a.address_line || a.street) as string,
+        area: (a.area || a.locality || a.landmark) as string,
         city: a.city as string,
         state: a.state as string,
-        pincode: (a.pincode || a.area_code) as string,
-        isDefault: a.is_default_address as boolean | undefined,
-        addressType: a.address_type as string | undefined,
+        pincode: String(a.pincode || a.area_code || a.zip || ''),
+        isDefault: (a.is_default_address || a.isDefault || a.default) as boolean | undefined,
+        addressType: (a.address_type || a.addressType || a.type || 'home') as string | undefined,
       }));
 
       setAddresses(mappedAddresses);
     } catch (err) {
       console.error('Failed to fetch addresses:', err);
+      toast({
+        title: 'Failed to load addresses',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

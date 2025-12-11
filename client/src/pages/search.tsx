@@ -17,9 +17,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const INITIAL_PRODUCTS = 8;
-const LOAD_MORE_COUNT = 8;
-const MAX_PRODUCTS_PER_REQUEST = 20;
+const INITIAL_PRODUCTS = 12;
+const LOAD_MORE_COUNT = 12;
+const MAX_PRODUCTS_PER_REQUEST = 50;
 
 const sortOptions = [
   { value: 'relevance', label: 'Relevance' },
@@ -61,16 +61,19 @@ export default function SearchPage() {
     setHasSearched(true);
     
     try {
+      // Fetch multiple pages to get more products
+      let allFetchedProducts: Product[] = [];
+      
       const result = await invoke<unknown>('get_products', {
         query: searchQuery,
         limit: MAX_PRODUCTS_PER_REQUEST,
       });
+      allFetchedProducts = parseMCPProductResponse(result);
 
-      const mappedProducts = parseMCPProductResponse(result);
-      cacheProducts(mappedProducts);
-      setAllProducts(mappedProducts);
-      setDisplayedProducts(mappedProducts.slice(0, INITIAL_PRODUCTS));
-      setHasMore(mappedProducts.length > INITIAL_PRODUCTS);
+      cacheProducts(allFetchedProducts);
+      setAllProducts(allFetchedProducts);
+      setDisplayedProducts(allFetchedProducts.slice(0, INITIAL_PRODUCTS));
+      setHasMore(allFetchedProducts.length > INITIAL_PRODUCTS);
     } catch (err) {
       console.error('Search failed:', err);
       setAllProducts([]);

@@ -9,6 +9,13 @@ import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import type { MandateToken } from '@shared/schema';
 import { 
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import { 
   ArrowLeft, 
   Zap, 
   CheckCircle2, 
@@ -19,7 +26,8 @@ import {
   Shield,
   Wallet,
   Clock,
-  Plus
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,11 +54,12 @@ export default function PaymentMethodsPage() {
   const [allTokens, setAllTokens] = useState<TokenItem[]>([]);
   const [maxAmount, setMaxAmount] = useState('5000');
   const [generatingQR, setGeneratingQR] = useState(false);
-  const [qrData, setQrData] = useState<{ qrCode?: string; intentLink?: string; qrImageUrl?: string } | null>(null);
+  const [qrData, setQrData] = useState<{ qrCode?: string; intentLink?: string; qrImageUrl?: string; orderId?: string } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [showAddNewMandate, setShowAddNewMandate] = useState(false);
   const [pollingBaselineTokenIds, setPollingBaselineTokenIds] = useState<Set<string>>(new Set());
+  const [cancelling, setCancelling] = useState(false);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { user, session, mandate, setMandate, setCustomerId: storeSetCustomerId } = useAppStore();
@@ -77,25 +86,20 @@ export default function PaymentMethodsPage() {
         contact: user.phone,
       });
 
-      // Get customer ID from response
       const custId = result.customer?.id || result.customer_id;
       if (custId) {
         setCustomerId(custId);
         storeSetCustomerId?.(custId);
       }
 
-      // Get tokens from saved_payment_methods.items or items
       const tokens: TokenItem[] = result.saved_payment_methods?.items || result.items || [];
       
-      // Filter to confirmed tokens only
       const confirmedTokens = tokens.filter((t) => 
         t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
       );
       
-      // Store all tokens for display
       setAllTokens(confirmedTokens);
 
-      // Set the first confirmed token as the active one
       if (confirmedTokens.length > 0) {
         const firstToken = confirmedTokens[0];
         const mappedToken: MandateToken = {
@@ -139,7 +143,6 @@ export default function PaymentMethodsPage() {
 
     setGeneratingQR(true);
     try {
-      // First fetch customer ID if not already set
       let custId = customerId;
       if (!custId) {
         const customerResult = await invoke<{ 
@@ -154,7 +157,6 @@ export default function PaymentMethodsPage() {
         }
       }
 
-      // Create order with session cookie - this is required for authentication
       const orderResult = await invoke<{ 
         id?: string; 
         order_id?: string;
@@ -174,7 +176,6 @@ export default function PaymentMethodsPage() {
         },
       });
 
-      // Check for error in response
       if (orderResult.error) {
         throw new Error(orderResult.message || 'Failed to create order');
       }
@@ -185,7 +186,6 @@ export default function PaymentMethodsPage() {
         throw new Error('No order ID returned');
       }
 
-      // Initiate payment with the order ID
       const paymentResult = await invoke<{ 
         upi_link?: string; 
         short_url?: string;
@@ -194,6 +194,8 @@ export default function PaymentMethodsPage() {
         payment_details?: {
           next?: Array<{ url?: string }>;
         };
+        id?: string;
+        payment_id?: string;
       }>('initiate_payment_with_masked_data', {
         amount: amount * 100,
         order_id: orderId,
@@ -205,11 +207,9 @@ export default function PaymentMethodsPage() {
         session_cookie: session,
       });
 
-      // Extract intent link and QR code from response
       const intentLink = paymentResult.upi_link || paymentResult.short_url;
       const qrImageUrl = paymentResult.qr_code || paymentResult.qr_code_url;
       
-      // Capture current token IDs and statuses as baseline before polling
       const baselineTokenIds = new Set(allTokens.map(t => t.id));
       const baselineTokenStatuses = new Map(allTokens.map(t => [t.id, t.recurring_details?.status || t.status || '']));
       setPollingBaselineTokenIds(baselineTokenIds);
@@ -218,6 +218,7 @@ export default function PaymentMethodsPage() {
         intentLink,
         qrCode: intentLink,
         qrImageUrl,
+        orderId,
       });
 
       setIsPolling(true);
@@ -237,6 +238,23 @@ export default function PaymentMethodsPage() {
       });
     } finally {
       setGeneratingQR(false);
+    }
+  };
+
+  const handleCancelSetup = async () => {
+    setCancelling(true);
+    try {
+      setIsPolling(false);
+      setQrData(null);
+      setShowAddNewMandate(false);
+      setMaxAmount('5000');
+      
+      toast({
+        title: 'Setup Cancelled',
+        description: 'Reserve Pay setup has been cancelled',
+      });
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -269,7 +287,6 @@ export default function PaymentMethodsPage() {
           t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
         );
         
-        // Check for new token IDs OR status changes (handles replacements and confirmations)
         const newToken = confirmedTokens.find(t => {
           const isNewId = !baselineTokenIds.has(t.id);
           const statusChanged = baselineTokenStatuses.get(t.id) !== 'confirmed' && 
@@ -291,6 +308,7 @@ export default function PaymentMethodsPage() {
           setAllTokens(confirmedTokens);
           setQrData(null);
           setIsPolling(false);
+          setShowAddNewMandate(false);
           toast({
             title: 'Reserve Pay Active!',
             description: 'Your UPI mandate has been set up successfully',
@@ -308,7 +326,6 @@ export default function PaymentMethodsPage() {
     poll();
   };
 
-  // Helper to format date from timestamp
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return 'N/A';
     return new Date(timestamp * 1000).toLocaleDateString('en-IN', {
@@ -325,6 +342,8 @@ export default function PaymentMethodsPage() {
   const availableAmount = token?.max_amount 
     ? ((token.max_amount - (token.amount_debited || 0)) / 100)
     : 0;
+
+  const totalMandateLimit = allTokens.reduce((sum, t) => sum + ((t.max_amount || 0) / 100), 0);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -353,8 +372,7 @@ export default function PaymentMethodsPage() {
                 Scan QR or click button below to authorize Reserve Pay mandate of ₹{maxAmount}
               </p>
 
-              {/* Display QR Code Image if available */}
-              {qrData.qrImageUrl && (
+              {qrData.qrImageUrl ? (
                 <div className="flex justify-center mb-4">
                   <div className="bg-white p-3 rounded-lg shadow-md">
                     <img 
@@ -365,17 +383,16 @@ export default function PaymentMethodsPage() {
                     />
                   </div>
                 </div>
-              )}
-
-              {/* Generate QR from intent link if no image URL */}
-              {!qrData.qrImageUrl && qrData.intentLink && (
+              ) : qrData.intentLink ? (
                 <div className="flex justify-center mb-4">
-                  <div className="bg-white p-4 rounded-lg shadow-md text-center">
-                    <QrCode className="w-32 h-32 text-gray-400 mx-auto mb-2" />
-                    <p className="text-xs text-gray-500">Use button below to open UPI app</p>
+                  <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl border-2 border-dashed border-primary/30">
+                    <QrCode className="w-24 h-24 text-primary mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground font-medium">
+                      Click below to open UPI app
+                    </p>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {qrData.intentLink && (
                 <a
@@ -391,11 +408,31 @@ export default function PaymentMethodsPage() {
               )}
 
               {isPolling && (
-                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground mb-4">
                   <RefreshCw className="w-4 h-4 animate-spin" />
                   <span>Waiting for confirmation...</span>
                 </div>
               )}
+
+              <Button
+                variant="outline"
+                onClick={handleCancelSetup}
+                disabled={cancelling}
+                className="w-full"
+                data-testid="button-cancel-setup"
+              >
+                {cancelling ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span className="ml-2">Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel Setup
+                  </>
+                )}
+              </Button>
 
               <p className="text-xs text-muted-foreground mt-4">
                 Powered by Razorpay Reserve Pay
@@ -510,11 +547,13 @@ export default function PaymentMethodsPage() {
           </ul>
         </div>
 
-        {/* Add New Mandate Section - Shows when tokens exist but user wants to add more */}
         {token && !qrData && !showAddNewMandate && (
           <Card className="p-4">
             <Button
-              onClick={() => setShowAddNewMandate(true)}
+              onClick={() => {
+                setMaxAmount('5000');
+                setShowAddNewMandate(true);
+              }}
               variant="outline"
               className="w-full py-5"
               data-testid="button-add-mandate"
@@ -525,7 +564,6 @@ export default function PaymentMethodsPage() {
           </Card>
         )}
 
-        {/* New Mandate Form */}
         {showAddNewMandate && !qrData && (
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -566,7 +604,6 @@ export default function PaymentMethodsPage() {
             <Button
               onClick={() => {
                 handleGenerateQR();
-                setShowAddNewMandate(false);
               }}
               disabled={generatingQR}
               className="w-full py-6 text-base font-semibold"
@@ -584,67 +621,89 @@ export default function PaymentMethodsPage() {
           </Card>
         )}
 
-        {/* Existing Reserve Pay Tokens */}
         {allTokens.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Your Reserve Pay Mandates</h3>
-            </div>
-            
-            {allTokens.map((t, idx) => {
-              const blocked = (t.recurring_details?.amount_blocked || t.max_amount || 0) / 100;
-              const debited = (t.recurring_details?.amount_debited || 0) / 100;
-              const remaining = blocked - debited;
-              const vpaDisplay = t.vpa ? `${t.vpa.username}@${t.vpa.handle}` : 'UPI';
-              const status = t.recurring_details?.status || t.status || 'unknown';
-              const isActive = status === 'confirmed';
-              
-              return (
-                <Card key={t.id} className="p-4" data-testid={`token-card-${idx}`}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center",
-                        isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
-                      )}>
-                        {isActive ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{vpaDisplay}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {isActive ? 'Active' : status}
-                        </p>
-                      </div>
+          <Drawer>
+            <DrawerTrigger asChild>
+              <Card className="p-4 cursor-pointer hover-elevate" data-testid="button-view-mandates">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Wallet className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Expires</p>
-                      <p className="text-xs font-medium">{formatDate(t.expired_at)}</p>
+                    <div>
+                      <p className="font-semibold">Your Reserve Pay Mandates</p>
+                      <p className="text-sm text-muted-foreground">
+                        {allTokens.length} active mandate{allTokens.length !== 1 ? 's' : ''} • ₹{totalMandateLimit.toLocaleString()} total limit
+                      </p>
                     </div>
                   </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </div>
+              </Card>
+            </DrawerTrigger>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  Your Reserve Pay Mandates
+                </DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-8 space-y-3 max-h-[60vh] overflow-y-auto">
+                {allTokens.map((t, idx) => {
+                  const blocked = (t.recurring_details?.amount_blocked || t.max_amount || 0) / 100;
+                  const debited = (t.recurring_details?.amount_debited || 0) / 100;
+                  const remaining = blocked - debited;
+                  const vpaDisplay = t.vpa ? `${t.vpa.username}@${t.vpa.handle}` : 'UPI';
+                  const status = t.recurring_details?.status || t.status || 'unknown';
+                  const isActive = status === 'confirmed';
                   
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground uppercase">Blocked</p>
-                      <p className="font-semibold text-sm">₹{blocked.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground uppercase">Used</p>
-                      <p className="font-semibold text-sm">₹{debited.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground uppercase">Available</p>
-                      <p className="font-semibold text-sm text-green-600">₹{remaining.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                  return (
+                    <Card key={t.id} className="p-4" data-testid={`token-card-${idx}`}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center",
+                            isActive ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
+                          )}>
+                            {isActive ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{vpaDisplay}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {isActive ? 'Active' : status}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Expires</p>
+                          <p className="text-sm font-medium">{formatDate(t.expired_at)}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">BLOCKED</p>
+                          <p className="font-semibold">₹{blocked}</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">USED</p>
+                          <p className="font-semibold">₹{debited}</p>
+                        </div>
+                        <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-2">
+                          <p className="text-xs text-green-600">AVAILABLE</p>
+                          <p className="font-semibold text-green-600">₹{remaining}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </DrawerContent>
+          </Drawer>
         )}
       </div>
     </div>

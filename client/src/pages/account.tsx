@@ -17,7 +17,8 @@ import {
   Mail,
   Settings,
   HelpCircle,
-  Shield
+  Shield,
+  ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -64,7 +65,7 @@ export default function AccountPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (session && phone && !user?.name) {
+    if (session && phone) {
       fetchUserDetails();
     }
   }, [session, phone]);
@@ -155,6 +156,13 @@ export default function AccountPage() {
         </Card>
 
         <Card className="overflow-hidden">
+          <MenuItem
+            icon={ShoppingCart}
+            label="My Cart"
+            description="View & manage cart items"
+            onClick={() => setLocation('/account/cart')}
+          />
+          <div className="border-t border-border" />
           <MenuItem
             icon={CreditCard}
             label="Payment Methods"
