@@ -73,7 +73,18 @@ export default function AddressesPage() {
 
       console.log('Address API response:', result);
 
-      const addressList = result.addresses || result.address || result.saved_addresses || [];
+      // Handle nested response structure: result.addresses.address or result.response.address
+      let addressList: Array<Record<string, unknown>> = [];
+      if (result.addresses && Array.isArray(result.addresses)) {
+        addressList = result.addresses;
+      } else if (result.addresses && typeof result.addresses === 'object' && 'address' in result.addresses) {
+        addressList = (result.addresses as { address: Array<Record<string, unknown>> }).address || [];
+      } else if (result.address && Array.isArray(result.address)) {
+        addressList = result.address;
+      } else if (result.saved_addresses && Array.isArray(result.saved_addresses)) {
+        addressList = result.saved_addresses;
+      }
+      
       const mappedAddresses: Address[] = addressList.map((a: Record<string, unknown>, idx: number) => ({
         id: String(a.id || a._id || a.uid || `addr-${idx}`),
         uid: a.uid as number | undefined,

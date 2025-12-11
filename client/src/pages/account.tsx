@@ -79,8 +79,23 @@ export default function AccountPage() {
         user?: {
           first_name?: string;
           last_name?: string;
+          emails?: Array<{ email?: string }>;
           email?: string;
           phone?: string;
+        };
+        response?: {
+          user?: {
+            first_name?: string;
+            last_name?: string;
+            emails?: Array<{ email?: string }>;
+            email?: string;
+          };
+        };
+        user_details?: {
+          first_name?: string;
+          last_name?: string;
+          emails?: Array<{ email?: string }>;
+          email?: string;
         };
         is_authenticated?: boolean;
         authenticated?: boolean;
@@ -91,10 +106,14 @@ export default function AccountPage() {
         cookies: session,
       });
 
-      const userInfo = result.user || result;
-      const firstName = userInfo.first_name || '';
-      const lastName = userInfo.last_name || '';
-      const email = userInfo.email || user?.email || '';
+      // Handle nested response structure: result.response.user or result.user_details or result.user
+      const userInfo = result.response?.user || result.user_details || result.user;
+      const firstName = userInfo?.first_name || result.first_name || '';
+      const lastName = userInfo?.last_name || result.last_name || '';
+      // Email might be in emails array or direct email field
+      const emails = userInfo?.emails;
+      const emailFromArray = emails && emails.length > 0 ? emails[0].email : undefined;
+      const email = emailFromArray || userInfo?.email || result.email || user?.email || '';
       const fullName = lastName ? `${firstName} ${lastName}` : firstName;
 
       if (fullName || email) {
