@@ -1,0 +1,2455 @@
+# TIRA Agentic Shopping App - Complete Build Instructions
+
+## PROJECT OVERVIEW
+
+Build a mobile-responsive web application that replicates the TIRA beauty e-commerce experience with an innovative "Buy at My Own Price" feature powered by UPI Reserve Pay (SBMD - Single Block Multiple Debit). This is a **leadership demo** for Razorpay × Reliance partnership showcasing agentic commerce.
+
+### Core Value Proposition
+Users can set a target price for products, and when prices drop during sales/promotions, the app **automatically purchases** the product using pre-authorized UPI mandate - true agentic behavior where AI acts on behalf of the user.
+
+### Technical Architecture
+- **Frontend:** React/Next.js (mobile-responsive, feels native)
+- **Backend:** None required - **Direct MCP Tool Calls from UI**
+- **Integration:** Replit's native MCP integration - UI buttons directly invoke MCP tools
+- **Styling:** Tailwind CSS
+- **State:** React Context or Zustand
+- **Shareable:** Must work via Replit preview URL
+
+---
+
+## BRAND GUIDELINES
+
+### Colors
+```css
+:root {
+  --tira-primary: #E91E63;      /* TIRA Pink/Magenta */
+  --tira-secondary: #FCE4EC;    /* Light Pink */
+  --tira-accent: #AD1457;       /* Dark Magenta */
+  --tira-background: #FFFFFF;
+  --tira-text-primary: #212121;
+  --tira-text-secondary: #757575;
+  --tira-success: #4CAF50;
+  --tira-warning: #FF9800;
+  --tira-error: #F44336;
+}
+```
+
+### Typography
+- Headings: Bold, clean sans-serif (Inter, Poppins, or system)
+- Body: Regular weight, readable
+- Use TIRA logo (user will provide assets)
+
+### Visual Style
+- Clean, minimal, premium beauty brand aesthetic
+- Rounded corners on cards (12-16px)
+- Subtle shadows for elevation
+- High-quality product imagery
+- Bottom navigation for mobile
+- Touch targets minimum 44px
+
+---
+
+## MCP INTEGRATION PATTERN
+
+### How to Call MCP Tools from UI
+```javascript
+// Create a reusable MCP hook
+const useMCP = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const invoke = async (toolName, params) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Replit MCP integration - adjust based on actual Replit API
+      const result = await mcp.invoke(toolName, params);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { invoke, loading, error };
+};
+
+// Usage in any component
+const SearchScreen = () => {
+  const { invoke, loading } = useMCP();
+  
+  const handleSearch = async (query) => {
+    const results = await invoke('Tira Agentic Shopping:get_products', {
+      query: query,
+      limit: 20
+    });
+    setProducts(results.products);
+  };
+};
+```
+
+### MCP Tool Reference (Quick)
+| Action | Tool Name |
+|--------|-----------|
+| Send OTP | `Tira Agentic Shopping:tira_send_otp` |
+| Verify OTP | `Tira Agentic Shopping:tira_verify_otp` |
+| Check Session | `Tira Agentic Shopping:check_user_session` |
+| Search Products | `Tira Agentic Shopping:get_products` |
+| Product Details | `Tira Agentic Shopping:tira_get_product_by_slug` |
+| Add to Cart | `Tira Agentic Shopping:add_to_cart` |
+| Get Addresses | `Tira Agentic Shopping:get_address` |
+| Add Address | `Tira Agentic Shopping:add_address` |
+| Check Mandate | `Tira Agentic Shopping:get_token_masked_data` |
+| Create RZP Order | `Tira Agentic Shopping:create_order_with_masked_data` |
+| Initiate Payment | `Tira Agentic Shopping:initiate_payment_with_masked_data` |
+| Create Price Bid | `Tira Agentic Shopping:tira_price_bidding` |
+| List Price Bids | `Tira Agentic Shopping:tira_list_price_bids` |
+| Mark Order Success | `Tira Agentic Shopping:mark_order_success` |
+| Intensive Monitor | `Tira Agentic Shopping:tira_intensive_price_monitor` |
+
+---
+
+## SCREEN-BY-SCREEN SPECIFICATIONS
+
+---
+
+### SCREEN 1: SPLASH (`/`)
+
+**Purpose:** App entry, session check, brand impression
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│                             │
+│                             │
+│         [TIRA LOGO]         │
+│                             │
+│                             │
+│   ─────────────────────     │
+│   Powered by Razorpay       │
+│   Reserve Pay               │
+│                             │
+└─────────────────────────────┘
+```
+
+**Logic:**
+```javascript
+const SplashScreen = () => {
+  const navigate = useNavigate();
+  const { invoke } = useMCP();
+
+  useEffect(() => {
+    const init = async () => {
+      await new Promise(r => setTimeout(r, 1500)); // Show splash
+      
+      const session = localStorage.getItem('tira_session');
+      if (session) {
+        try {
+          const result = await invoke('Tira Agentic Shopping:check_user_session', {
+            cookies: session
+          });
+          if (result?.isAuthenticated || result?.user) {
+            navigate('/home');
+            return;
+          }
+        } catch (e) {
+          console.log('Session invalid');
+        }
+      }
+      navigate('/login');
+    };
+    init();
+  }, []);
+
+  return (
+    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-pink-50 to-white">
+      <img src="/tira-logo.png" alt="TIRA" className="w-32 mb-8" />
+      <p className="text-gray-500 text-sm">Powered by Razorpay Reserve Pay</p>
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 2: LOGIN (`/login`)
+
+**Purpose:** Phone number input for OTP authentication
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│                             │
+│         [TIRA LOGO]         │
+│                             │
+│      Welcome to TIRA        │
+│   India's Beauty Destination│
+│                             │
+│   ┌───────────────────────┐ │
+│   │ +91 │ Enter mobile    │ │
+│   └───────────────────────┘ │
+│                             │
+│   ┌───────────────────────┐ │
+│   │     SEND OTP          │ │
+│   └───────────────────────┘ │
+│                             │
+│   By continuing, you agree  │
+│   to our Terms & Privacy    │
+│                             │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const LoginScreen = () => {
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  const handleSendOTP = async () => {
+    if (phone.length !== 10) {
+      setError('Please enter valid 10-digit mobile number');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_send_otp', {
+        mobile: phone,
+        country_code: '91'
+      });
+
+      // Store request_id for verification
+      localStorage.setItem('tira_otp_request_id', result.request_id);
+      localStorage.setItem('tira_phone', phone);
+      
+      navigate('/verify-otp');
+    } catch (err) {
+      setError('Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-screen flex flex-col p-6">
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <img src="/tira-logo.png" alt="TIRA" className="w-24 mb-6" />
+        <h1 className="text-2xl font-bold mb-2">Welcome to TIRA</h1>
+        <p className="text-gray-500 mb-8">India's Beauty Destination</p>
+
+        <div className="w-full max-w-sm">
+          <div className="flex border rounded-lg overflow-hidden mb-4">
+            <span className="bg-gray-100 px-4 py-3 text-gray-600">+91</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="Enter mobile number"
+              className="flex-1 px-4 py-3 outline-none"
+            />
+          </div>
+
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+
+          <button
+            onClick={handleSendOTP}
+            disabled={loading || phone.length !== 10}
+            className="w-full bg-[#E91E63] text-white py-3 rounded-lg font-semibold disabled:opacity-50"
+          >
+            {loading ? 'Sending...' : 'SEND OTP'}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-center text-gray-400 text-xs">
+        By continuing, you agree to our Terms & Privacy Policy
+      </p>
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 3: OTP VERIFICATION (`/verify-otp`)
+
+**Purpose:** Verify OTP and establish session
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│  ←                          │
+│                             │
+│      Verify OTP             │
+│                             │
+│   Enter the 4-digit code    │
+│   sent to +91 98XXXXXX65    │
+│                             │
+│      ┌─┐ ┌─┐ ┌─┐ ┌─┐       │
+│      │ │ │ │ │ │ │ │       │
+│      └─┘ └─┘ └─┘ └─┘       │
+│                             │
+│   Resend OTP in 00:30       │
+│                             │
+│   ┌───────────────────────┐ │
+│   │       VERIFY          │ │
+│   └───────────────────────┘ │
+│                             │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const VerifyOTPScreen = () => {
+  const [otp, setOtp] = useState(['', '', '', '']);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(30);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+  const inputRefs = [useRef(), useRef(), useRef(), useRef()];
+
+  const phone = localStorage.getItem('tira_phone');
+  const requestId = localStorage.getItem('tira_otp_request_id');
+
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) return;
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 3) {
+      inputRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const otpString = otp.join('');
+    if (otpString.length !== 4) {
+      setError('Please enter complete OTP');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_verify_otp', {
+        otp: otpString,
+        request_id: requestId
+      });
+
+      // Store session data
+      const sessionCookie = result.session_cookie || result.cookies || result.f_session;
+      localStorage.setItem('tira_session', sessionCookie);
+      localStorage.setItem('tira_user', JSON.stringify({
+        phone: phone,
+        name: result.user?.name || result.name || '',
+        email: result.user?.email || result.email || ''
+      }));
+
+      navigate('/home');
+    } catch (err) {
+      setError('Invalid OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_send_otp', {
+        mobile: phone,
+        country_code: '91'
+      });
+      localStorage.setItem('tira_otp_request_id', result.request_id);
+      setResendTimer(30);
+      setOtp(['', '', '', '']);
+    } catch (err) {
+      setError('Failed to resend OTP');
+    }
+  };
+
+  const maskedPhone = phone ? `${phone.slice(0, 2)}XXXXXX${phone.slice(-2)}` : '';
+
+  return (
+    <div className="h-screen flex flex-col p-6">
+      <button onClick={() => navigate('/login')} className="self-start mb-8">
+        ← Back
+      </button>
+
+      <h1 className="text-2xl font-bold mb-2">Verify OTP</h1>
+      <p className="text-gray-500 mb-8">
+        Enter the 4-digit code sent to +91 {maskedPhone}
+      </p>
+
+      <div className="flex justify-center gap-4 mb-6">
+        {otp.map((digit, index) => (
+          <input
+            key={index}
+            ref={inputRefs[index]}
+            type="tel"
+            maxLength={1}
+            value={digit}
+            onChange={(e) => handleOtpChange(index, e.target.value)}
+            className="w-14 h-14 text-center text-2xl border-2 rounded-lg focus:border-[#E91E63] outline-none"
+          />
+        ))}
+      </div>
+
+      <button
+        onClick={handleResend}
+        disabled={resendTimer > 0}
+        className="text-[#E91E63] text-sm mb-6 disabled:text-gray-400"
+      >
+        {resendTimer > 0 ? `Resend OTP in 00:${resendTimer.toString().padStart(2, '0')}` : 'Resend OTP'}
+      </button>
+
+      {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+
+      <button
+        onClick={handleVerify}
+        disabled={loading || otp.join('').length !== 4}
+        className="w-full bg-[#E91E63] text-white py-3 rounded-lg font-semibold disabled:opacity-50"
+      >
+        {loading ? 'Verifying...' : 'VERIFY'}
+      </button>
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 4: HOME (`/home`)
+
+**Purpose:** Main discovery hub with search, categories, featured products
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ [LOGO]  🔍 Search...   [👤] │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │     HERO BANNER         │ │
+│ │  "Black Friday Sale     │ │
+│ │   Coming Soon!"         │ │
+│ └─────────────────────────┘ │
+│                             │
+│ ── Shop by Category ──────  │
+│ ┌─────┐ ┌─────┐ ┌─────┐    │
+│ │💄   │ │✨   │ │💇‍♀️  │    │
+│ │Make │ │Skin │ │Hair │    │
+│ └─────┘ └─────┘ └─────┘    │
+│ ┌─────┐ ┌─────┐ ┌─────┐    │
+│ │🌸   │ │🛁   │ │💅   │    │
+│ │Frag │ │Bath │ │Tools│    │
+│ └─────┘ └─────┘ └─────┘    │
+│                             │
+│ ── Trending Now ──────────  │
+│ [Product] [Product] [Prod]  │
+│                             │
+├─────────────────────────────┤
+│  🏠    🔍    ❤️    📦    👤  │
+│ Home Search Bids Orders  Me │
+└─────────────────────────────┘
+```
+
+**Implementation:**
+```javascript
+const HomeScreen = () => {
+  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  // Static data for categories
+  const categories = [
+    { id: 'makeup', name: 'Makeup', icon: '💄', query: 'makeup' },
+    { id: 'skincare', name: 'Skincare', icon: '✨', query: 'skincare serum' },
+    { id: 'hair', name: 'Hair Care', icon: '💇‍♀️', query: 'shampoo hair' },
+    { id: 'fragrance', name: 'Fragrance', icon: '🌸', query: 'perfume fragrance' },
+    { id: 'bath', name: 'Bath & Body', icon: '🛁', query: 'body lotion' },
+    { id: 'tools', name: 'Tools', icon: '💅', query: 'beauty tools brush' }
+  ];
+
+  // Static banner data
+  const banners = [
+    { id: 1, title: 'Black Friday Sale', subtitle: 'Coming Soon!', bg: 'bg-gradient-to-r from-pink-500 to-purple-500' },
+    { id: 2, title: 'New Arrivals', subtitle: 'Shop Latest Beauty', bg: 'bg-gradient-to-r from-rose-400 to-pink-500' }
+  ];
+
+  // Fetch trending products on mount
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const result = await invoke('Tira Agentic Shopping:get_products', {
+          query: 'bestseller lipstick',
+          limit: 6
+        });
+        const products = (result.products || []).map(p => ({
+          id: p.uid,
+          slug: p.slug,
+          name: p.name,
+          brand: p.brand?.name || 'TIRA',
+          image: p.images?.[0]?.url || p.medias?.[0]?.url,
+          price: p.price?.effective?.min,
+          mrp: p.price?.marked?.min,
+          discount: p.discount
+        }));
+        setTrendingProducts(products);
+      } catch (err) {
+        console.error('Failed to fetch trending:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrending();
+  }, []);
+
+  return (
+    <div className="pb-20">
+      {/* Header */}
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 flex items-center gap-3 border-b">
+        <img src="/tira-logo.png" alt="TIRA" className="h-8" />
+        <button 
+          onClick={() => navigate('/search')}
+          className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-left text-gray-500"
+        >
+          🔍 Search products...
+        </button>
+        <button onClick={() => navigate('/account')} className="text-2xl">👤</button>
+      </div>
+
+      {/* Hero Banner Carousel */}
+      <div className="p-4">
+        <div className={`${banners[0].bg} rounded-2xl p-6 text-white`}>
+          <h2 className="text-2xl font-bold">{banners[0].title}</h2>
+          <p className="opacity-90">{banners[0].subtitle}</p>
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="px-4 mb-6">
+        <h3 className="font-bold text-lg mb-3">Shop by Category</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {categories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => navigate(`/search?q=${encodeURIComponent(cat.query)}`)}
+              className="bg-pink-50 rounded-xl p-4 text-center hover:bg-pink-100 transition"
+            >
+              <span className="text-3xl block mb-1">{cat.icon}</span>
+              <span className="text-sm font-medium">{cat.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Trending Products */}
+      <div className="px-4 mb-6">
+        <h3 className="font-bold text-lg mb-3">Trending Now</h3>
+        {loading ? (
+          <div className="flex gap-3 overflow-x-auto">
+            {[1,2,3].map(i => (
+              <div key={i} className="w-36 h-48 bg-gray-100 rounded-xl animate-pulse flex-shrink-0" />
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {trendingProducts.map(product => (
+              <button
+                key={product.id}
+                onClick={() => navigate(`/product/${product.slug}`)}
+                className="w-36 flex-shrink-0 text-left"
+              >
+                <div className="bg-gray-100 rounded-xl aspect-square mb-2 overflow-hidden">
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                </div>
+                <p className="text-xs text-gray-500">{product.brand}</p>
+                <p className="text-sm font-medium line-clamp-2">{product.name}</p>
+                <p className="text-sm font-bold text-[#E91E63]">₹{product.price}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation */}
+      <BottomNav active="home" />
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 5: SEARCH & RESULTS (`/search`)
+
+**Purpose:** Product search with real TIRA data
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ ← │ 🔍 Search...        │ ✕ │
+├─────────────────────────────┤
+│ [Sort ▼] [Price ▼] [Rating] │
+├─────────────────────────────┤
+│ Showing X results           │
+│                             │
+│ ┌───────────┬───────────┐  │
+│ │ [Image]   │ [Image]   │  │
+│ │ Brand     │ Brand     │  │
+│ │ Product   │ Product   │  │
+│ │ ★4.2      │ ★4.5      │  │
+│ │ ₹599 ₹799 │ ₹1299     │  │
+│ └───────────┴───────────┘  │
+│ ┌───────────┬───────────┐  │
+│ │ ...       │ ...       │  │
+│ └───────────┴───────────┘  │
+├─────────────────────────────┤
+│  🏠    🔍    ❤️    📦    👤  │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const SearchScreen = () => {
+  const [query, setQuery] = useState('');
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('relevance');
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const searchInputRef = useRef();
+
+  // Get initial query from URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('q');
+    if (q) {
+      setQuery(q);
+      performSearch(q);
+    } else {
+      searchInputRef.current?.focus();
+    }
+  }, [location.search]);
+
+  const performSearch = async (searchQuery) => {
+    if (!searchQuery.trim()) return;
+
+    setLoading(true);
+    try {
+      const result = await invoke('Tira Agentic Shopping:get_products', {
+        query: searchQuery,
+        limit: 20
+      });
+
+      const mappedProducts = (result.products || []).map(p => ({
+        id: p.uid,
+        slug: p.slug,
+        name: p.name,
+        brand: p.brand?.name || 'TIRA',
+        image: p.images?.[0]?.url || p.medias?.[0]?.url,
+        price: p.price?.effective?.min,
+        mrp: p.price?.marked?.min,
+        rating: p.rating || 4.0,
+        ratingCount: p.rating_count || 0,
+        discount: p.discount,
+        itemId: p.uid,
+        articleId: p.sizes?.[0]?.value || p.article_id
+      }));
+
+      setProducts(mappedProducts);
+      setFilteredProducts(mappedProducts);
+    } catch (err) {
+      console.error('Search failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (query.trim()) {
+      navigate(`/search?q=${encodeURIComponent(query)}`);
+    }
+  };
+
+  // Client-side sorting
+  useEffect(() => {
+    let sorted = [...products];
+    if (sortBy === 'price_low') sorted.sort((a, b) => a.price - b.price);
+    else if (sortBy === 'price_high') sorted.sort((a, b) => b.price - a.price);
+    else if (sortBy === 'rating') sorted.sort((a, b) => b.rating - a.rating);
+    setFilteredProducts(sorted);
+  }, [sortBy, products]);
+
+  return (
+    <div className="pb-20">
+      {/* Search Header */}
+      <form onSubmit={handleSearch} className="sticky top-0 bg-white z-10 px-4 py-3 flex items-center gap-2 border-b">
+        <button type="button" onClick={() => navigate(-1)}>←</button>
+        <input
+          ref={searchInputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search products..."
+          className="flex-1 bg-gray-100 rounded-full px-4 py-2 outline-none"
+        />
+        {query && (
+          <button type="button" onClick={() => { setQuery(''); setProducts([]); }}>✕</button>
+        )}
+      </form>
+
+      {/* Sort/Filter Bar */}
+      {products.length > 0 && (
+        <div className="px-4 py-2 flex gap-2 border-b overflow-x-auto">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-gray-100 rounded-full px-3 py-1 text-sm"
+          >
+            <option value="relevance">Relevance</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+            <option value="rating">Top Rated</option>
+          </select>
+        </div>
+      )}
+
+      {/* Results */}
+      <div className="p-4">
+        {loading ? (
+          <div className="grid grid-cols-2 gap-4">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="aspect-[3/4] bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : filteredProducts.length > 0 ? (
+          <>
+            <p className="text-sm text-gray-500 mb-3">Showing {filteredProducts.length} results</p>
+            <div className="grid grid-cols-2 gap-4">
+              {filteredProducts.map(product => (
+                <button
+                  key={product.id}
+                  onClick={() => navigate(`/product/${product.slug}`)}
+                  className="text-left"
+                >
+                  <div className="bg-gray-100 rounded-xl aspect-square mb-2 overflow-hidden relative">
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    {product.discount && (
+                      <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                        {product.discount}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">{product.brand}</p>
+                  <p className="text-sm font-medium line-clamp-2 mb-1">{product.name}</p>
+                  <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                    <span>⭐ {product.rating.toFixed(1)}</span>
+                    {product.ratingCount > 0 && <span>({product.ratingCount})</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[#E91E63]">₹{product.price}</span>
+                    {product.mrp > product.price && (
+                      <span className="text-gray-400 line-through text-sm">₹{product.mrp}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : query && !loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No products found for "{query}"</p>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-400">Search for beauty products</p>
+          </div>
+        )}
+      </div>
+
+      <BottomNav active="search" />
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 6: PRODUCT DETAILS (`/product/:slug`)
+
+**Purpose:** Full product info with Buy and "Buy at My Price" actions
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ ←                    ♡ Share│
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │                         │ │
+│ │   [Product Image]       │ │
+│ │                         │ │
+│ │      • • ○ ○            │ │
+│ └─────────────────────────┘ │
+│                             │
+│ BRAND NAME                  │
+│ Product Full Name Here      │
+│ 50ml                        │
+│                             │
+│ ⭐⭐⭐⭐☆ 4.2 (234)          │
+│                             │
+│ ₹1,299  ₹1,599  19% OFF     │
+│ Inclusive of all taxes      │
+│                             │
+│ ── Description ───────────  │
+│ Product description text    │
+│ goes here...                │
+│                             │
+├─────────────────────────────┤
+│ ┌───────────┬─────────────┐ │
+│ │  ADD TO   │ BUY AT MY   │ │
+│ │   BAG     │  OWN PRICE  │ │
+│ └───────────┴─────────────┘ │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const ProductDetailScreen = () => {
+  const { slug } = useParams();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const result = await invoke('Tira Agentic Shopping:tira_get_product_by_slug', {
+          slug: slug
+        });
+
+        setProduct({
+          name: result.name,
+          brand: result.brand?.name || 'TIRA',
+          images: result.medias?.map(m => m.url) || [result.images?.[0]?.url],
+          price: result.price?.effective?.min,
+          mrp: result.price?.marked?.min,
+          discount: result.discount,
+          rating: result.rating || 4.0,
+          ratingCount: result.rating_count || 0,
+          description: result.description || result.short_description || '',
+          itemId: result.uid,
+          articleId: result.sizes?.[0]?.value,
+          slug: result.slug,
+          inStock: result.sellable !== false
+        });
+      } catch (err) {
+        console.error('Failed to load product:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [slug]);
+
+  const handleAddToBag = async () => {
+    const session = localStorage.getItem('tira_session');
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+
+    setAddingToCart(true);
+    try {
+      await invoke('Tira Agentic Shopping:add_to_cart', {
+        items: [{
+          item_id: product.itemId,
+          article_id: product.articleId,
+          quantity: 1
+        }],
+        sessionCookie: session
+      });
+      showToast('Added to bag!');
+    } catch (err) {
+      showToast('Failed to add to bag', 'error');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleBuyAtMyPrice = () => {
+    const mandate = localStorage.getItem('tira_mandate');
+    if (!mandate) {
+      showToast('Please setup Reserve Pay first');
+      navigate('/account/payments', { state: { returnTo: `/product/${slug}` } });
+      return;
+    }
+    setShowPriceBidSheet(true);
+  };
+
+  if (loading) {
+    return <ProductDetailSkeleton />;
+  }
+
+  if (!product) {
+    return <div className="p-4 text-center">Product not found</div>;
+  }
+
+  const discountPercent = product.mrp > product.price 
+    ? Math.round((1 - product.price / product.mrp) * 100) 
+    : 0;
+
+  return (
+    <div className="pb-24">
+      {/* Header */}
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 flex justify-between items-center border-b">
+        <button onClick={() => navigate(-1)}>← Back</button>
+        <div className="flex gap-4">
+          <button>♡</button>
+          <button>Share</button>
+        </div>
+      </div>
+
+      {/* Image Carousel */}
+      <div className="aspect-square bg-gray-100">
+        <img 
+          src={product.images?.[0]} 
+          alt={product.name} 
+          className="w-full h-full object-contain"
+        />
+      </div>
+
+      {/* Product Info */}
+      <div className="p-4">
+        <p className="text-gray-500 text-sm uppercase tracking-wide">{product.brand}</p>
+        <h1 className="text-xl font-semibold mt-1 mb-2">{product.name}</h1>
+        
+        <div className="flex items-center gap-2 mb-3">
+          <span className="bg-green-100 text-green-700 text-sm px-2 py-0.5 rounded">
+            ⭐ {product.rating?.toFixed(1)}
+          </span>
+          {product.ratingCount > 0 && (
+            <span className="text-gray-500 text-sm">({product.ratingCount} reviews)</span>
+          )}
+        </div>
+
+        <div className="flex items-baseline gap-3 mb-1">
+          <span className="text-2xl font-bold">₹{product.price?.toLocaleString()}</span>
+          {product.mrp > product.price && (
+            <>
+              <span className="text-gray-400 line-through">₹{product.mrp?.toLocaleString()}</span>
+              <span className="text-green-600 font-semibold">{discountPercent}% OFF</span>
+            </>
+          )}
+        </div>
+        <p className="text-gray-500 text-sm mb-4">Inclusive of all taxes</p>
+
+        {/* Description */}
+        {product.description && (
+          <div className="border-t pt-4">
+            <h3 className="font-semibold mb-2">Description</h3>
+            <p className="text-gray-600 text-sm">{product.description}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3">
+        <button
+          onClick={handleAddToBag}
+          disabled={addingToCart}
+          className="flex-1 border-2 border-[#E91E63] text-[#E91E63] py-3 rounded-lg font-semibold"
+        >
+          {addingToCart ? 'Adding...' : 'ADD TO BAG'}
+        </button>
+        <button
+          onClick={handleBuyAtMyPrice}
+          className="flex-1 bg-[#E91E63] text-white py-3 rounded-lg font-semibold"
+        >
+          BUY AT MY PRICE
+        </button>
+      </div>
+
+      {/* Price Bid Bottom Sheet */}
+      {showPriceBidSheet && (
+        <PriceBidSheet
+          product={product}
+          onClose={() => setShowPriceBidSheet(false)}
+        />
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 7: PRICE BID BOTTOM SHEET (Component)
+
+**Purpose:** Core agentic feature - set target price for auto-purchase
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ ══════════════════════════  │
+│                             │
+│  Buy at Your Own Price 🏷️   │
+│                             │
+│  Current Price: ₹1,299      │
+│                             │
+│  ── Quick Select ─────────  │
+│  [10% OFF]  [20% OFF]  [30%]│
+│   ₹1,169     ₹1,039    ₹909 │
+│                             │
+│  ── Or Enter Your Price ──  │
+│  ┌────────────────────────┐ │
+│  │ ₹ │ Enter amount       │ │
+│  └────────────────────────┘ │
+│                             │
+│  ┌────────────────────────┐ │
+│  │ 📊 Success Probability │ │
+│  │ ████████░░░░ 67%       │ │
+│  │ High chance in Black   │ │
+│  │ Friday Sale!           │ │
+│  └────────────────────────┘ │
+│                             │
+│  ⓘ When price drops to     │
+│  ₹1,039, we'll auto-buy    │
+│  using Reserve Pay          │
+│                             │
+│  [   SUBMIT PRICE BID    ]  │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const PriceBidSheet = ({ product, onClose }) => {
+  const [bidPrice, setBidPrice] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [selectedDiscount, setSelectedDiscount] = useState(null);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  const currentPrice = product.price;
+  
+  const discountOptions = [
+    { label: '10% OFF', percent: 10, price: Math.round(currentPrice * 0.9) },
+    { label: '20% OFF', percent: 20, price: Math.round(currentPrice * 0.8) },
+    { label: '30% OFF', percent: 30, price: Math.round(currentPrice * 0.7) }
+  ];
+
+  const calculateProbability = (bid) => {
+    if (!bid || bid >= currentPrice) return null;
+    const discount = ((currentPrice - bid) / currentPrice) * 100;
+    if (discount <= 10) return { percent: 95, label: 'Very High', color: '#4CAF50', message: 'Almost guaranteed!' };
+    if (discount <= 20) return { percent: 75, label: 'High', color: '#8BC34A', message: 'High chance in Black Friday Sale!' };
+    if (discount <= 30) return { percent: 50, label: 'Medium', color: '#FF9800', message: 'Possible during major sales' };
+    if (discount <= 40) return { percent: 25, label: 'Low', color: '#FF5722', message: 'Unlikely but we\'ll try!' };
+    return { percent: 10, label: 'Very Low', color: '#F44336', message: 'Very unlikely at this price' };
+  };
+
+  const selectedBidPrice = bidPrice ? Number(bidPrice) : selectedDiscount?.price;
+  const probability = selectedBidPrice ? calculateProbability(selectedBidPrice) : null;
+
+  const handleQuickSelect = (option) => {
+    setSelectedDiscount(option);
+    setBidPrice(option.price.toString());
+  };
+
+  const handleSubmitBid = async () => {
+    const session = localStorage.getItem('tira_session');
+    const user = JSON.parse(localStorage.getItem('tira_user') || '{}');
+    const finalBidPrice = Number(bidPrice);
+
+    if (!finalBidPrice || finalBidPrice >= currentPrice) {
+      showToast('Bid must be lower than current price');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_price_bidding', {
+        productSlug: product.slug,
+        productName: product.name,
+        productItemId: product.itemId,
+        productArticleId: product.articleId,
+        purchasePrice: currentPrice,
+        bidPrice: finalBidPrice,
+        userId: user.phone,
+        userPhone: user.phone,
+        sessionCookie: session,
+        notificationMethod: 'whatsapp',
+        notificationDestination: user.phone,
+        addressConfirmed: true
+      });
+
+      // Store bid locally for quick access
+      const bids = JSON.parse(localStorage.getItem('tira_bids') || '[]');
+      bids.push({
+        id: result.bidId || Date.now(),
+        product: {
+          name: product.name,
+          brand: product.brand,
+          image: product.images?.[0],
+          slug: product.slug
+        },
+        bidPrice: finalBidPrice,
+        currentPrice: currentPrice,
+        status: 'monitoring',
+        createdAt: new Date().toISOString()
+      });
+      localStorage.setItem('tira_bids', JSON.stringify(bids));
+
+      showToast('🎉 Price bid submitted!');
+      onClose();
+      navigate('/wishlist');
+    } catch (err) {
+      console.error('Price bid error:', err);
+      showToast('Failed to submit bid. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+      <div className="bg-white w-full rounded-t-3xl p-6 max-h-[80vh] overflow-auto">
+        {/* Handle */}
+        <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+        
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Buy at Your Own Price 🏷️</h2>
+          <button onClick={onClose} className="text-gray-500 text-xl">✕</button>
+        </div>
+
+        {/* Current Price */}
+        <p className="text-gray-600 mb-4">
+          Current Price: <span className="font-bold text-lg">₹{currentPrice.toLocaleString()}</span>
+        </p>
+
+        {/* Quick Select */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 mb-2">Quick Select</p>
+          <div className="flex gap-2">
+            {discountOptions.map(option => (
+              <button
+                key={option.percent}
+                onClick={() => handleQuickSelect(option)}
+                className={`flex-1 p-3 rounded-xl border-2 text-center transition ${
+                  selectedDiscount?.percent === option.percent
+                    ? 'border-[#E91E63] bg-pink-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <p className="font-semibold text-sm">{option.label}</p>
+                <p className="text-[#E91E63] font-bold">₹{option.price}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Manual Input */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 mb-2">Or enter your price</p>
+          <div className="flex border-2 rounded-xl overflow-hidden focus-within:border-[#E91E63]">
+            <span className="bg-gray-100 px-4 py-3 font-semibold">₹</span>
+            <input
+              type="number"
+              value={bidPrice}
+              onChange={(e) => {
+                setBidPrice(e.target.value);
+                setSelectedDiscount(null);
+              }}
+              placeholder="Enter your bid"
+              className="flex-1 px-4 py-3 outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Probability Indicator */}
+        {probability && (
+          <div className="bg-gray-50 rounded-xl p-4 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Success Probability</span>
+              <span className="font-bold" style={{ color: probability.color }}>
+                {probability.percent}% - {probability.label}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <div
+                className="h-2 rounded-full transition-all"
+                style={{ width: `${probability.percent}%`, backgroundColor: probability.color }}
+              />
+            </div>
+            <p className="text-sm text-gray-500">{probability.message}</p>
+          </div>
+        )}
+
+        {/* Info */}
+        <div className="bg-blue-50 rounded-xl p-3 mb-4 text-sm text-blue-800">
+          ℹ️ When price drops to ₹{selectedBidPrice?.toLocaleString() || '___'}, we'll automatically 
+          purchase using your Reserve Pay
+        </div>
+
+        {/* Submit Button */}
+        <button
+          onClick={handleSubmitBid}
+          disabled={loading || !selectedBidPrice || selectedBidPrice >= currentPrice}
+          className="w-full bg-[#E91E63] text-white py-4 rounded-xl font-semibold disabled:opacity-50"
+        >
+          {loading ? 'Submitting...' : 'SUBMIT PRICE BID'}
+        </button>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 8: WISHLIST / PRICE BIDS (`/wishlist`)
+
+**Purpose:** View all active price bids and their status
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ ←  My Price Bids            │
+├─────────────────────────────┤
+│                             │
+│ ── Active Bids ───────────  │
+│ ┌─────────────────────────┐ │
+│ │ [Img] Product Name      │ │
+│ │       Brand             │ │
+│ │                         │ │
+│ │  Current: ₹1,299        │ │
+│ │  Your Bid: ₹1,039       │ │
+│ │                         │ │
+│ │  🔄 Monitoring...       │ │
+│ │  Probability: 75%       │ │
+│ │                         │ │
+│ │  [Remove]               │ │
+│ └─────────────────────────┘ │
+│                             │
+│ ── Completed ─────────────  │
+│ ┌─────────────────────────┐ │
+│ │ [Img] Product           │ │
+│ │  ✅ PURCHASED!          │ │
+│ │  Saved ₹260             │ │
+│ └─────────────────────────┘ │
+│                             │
+├─────────────────────────────┤
+│  🏠    🔍    ❤️    📦    👤  │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const WishlistScreen = () => {
+  const [activeBids, setActiveBids] = useState([]);
+  const [completedBids, setCompletedBids] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchBids();
+  }, []);
+
+  const fetchBids = async () => {
+    const user = JSON.parse(localStorage.getItem('tira_user') || '{}');
+    if (!user.phone) {
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_list_price_bids', {
+        userId: user.phone,
+        includeCompleted: true
+      });
+
+      const bids = result.bids || [];
+      setActiveBids(bids.filter(b => b.status === 'monitoring' || b.status === 'active'));
+      setCompletedBids(bids.filter(b => b.status === 'completed'));
+    } catch (err) {
+      // Fallback to localStorage
+      const localBids = JSON.parse(localStorage.getItem('tira_bids') || '[]');
+      setActiveBids(localBids.filter(b => b.status === 'monitoring'));
+      setCompletedBids(localBids.filter(b => b.status === 'completed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveBid = async (bid) => {
+    try {
+      if (bid.monitorId) {
+        await invoke('Tira Agentic Shopping:tira_delete_price_monitor', {
+          monitorId: bid.monitorId
+        });
+      }
+      setActiveBids(prev => prev.filter(b => b.id !== bid.id));
+      
+      // Update localStorage
+      const localBids = JSON.parse(localStorage.getItem('tira_bids') || '[]');
+      localStorage.setItem('tira_bids', JSON.stringify(localBids.filter(b => b.id !== bid.id)));
+      
+      showToast('Bid removed');
+    } catch (err) {
+      showToast('Failed to remove bid', 'error');
+    }
+  };
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <div className="pb-20">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <h1 className="text-xl font-bold">My Price Bids</h1>
+      </div>
+
+      <div className="p-4">
+        {/* Active Bids */}
+        {activeBids.length > 0 && (
+          <div className="mb-6">
+            <h2 className="font-semibold text-gray-600 mb-3">Active Bids ({activeBids.length})</h2>
+            <div className="space-y-3">
+              {activeBids.map(bid => (
+                <BidCard key={bid.id} bid={bid} onRemove={() => handleRemoveBid(bid)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Completed Bids */}
+        {completedBids.length > 0 && (
+          <div className="mb-6">
+            <h2 className="font-semibold text-gray-600 mb-3">Completed ({completedBids.length})</h2>
+            <div className="space-y-3">
+              {completedBids.map(bid => (
+                <BidCard key={bid.id} bid={bid} completed />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {activeBids.length === 0 && completedBids.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-4xl mb-4">🏷️</p>
+            <p className="text-gray-500 mb-4">No price bids yet</p>
+            <button
+              onClick={() => navigate('/search')}
+              className="text-[#E91E63] font-semibold"
+            >
+              Browse Products →
+            </button>
+          </div>
+        )}
+      </div>
+
+      <BottomNav active="wishlist" />
+    </div>
+  );
+};
+
+// Bid Card Component
+const BidCard = ({ bid, onRemove, completed }) => {
+  const savings = bid.currentPrice - bid.bidPrice;
+  
+  return (
+    <div className="bg-white border rounded-xl p-4">
+      <div className="flex gap-3">
+        <img 
+          src={bid.product?.image} 
+          alt={bid.product?.name}
+          className="w-20 h-20 rounded-lg object-cover bg-gray-100"
+        />
+        <div className="flex-1">
+          <p className="text-xs text-gray-500">{bid.product?.brand}</p>
+          <p className="font-medium line-clamp-2">{bid.product?.name}</p>
+          
+          <div className="mt-2">
+            {completed ? (
+              <div className="flex items-center gap-2">
+                <span className="text-green-600 font-semibold">✅ Purchased!</span>
+                <span className="text-green-600 text-sm">Saved ₹{savings}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Current: ₹{bid.currentPrice}</span>
+                  <span className="text-[#E91E63] font-semibold">Your Bid: ₹{bid.bidPrice}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="animate-pulse text-blue-500">🔄</span>
+                  <span className="text-xs text-gray-500">Monitoring...</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {!completed && onRemove && (
+        <button 
+          onClick={onRemove}
+          className="mt-3 text-red-500 text-sm w-full text-center py-2 border-t"
+        >
+          Remove Bid
+        </button>
+      )}
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 9: ORDERS (`/orders`)
+
+**Purpose:** Order history (derived from completed bids + direct orders)
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│ ←  My Orders                │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │ Order #TIR123456        │ │
+│ │ 15 Nov, 2:30 PM         │ │
+│ │ ───────────────────     │ │
+│ │ [Img] Product Name      │ │
+│ │       ₹1,039            │ │
+│ │ ───────────────────     │ │
+│ │ ✅ Processing           │ │
+│ │ 💰 Saved ₹260 with      │ │
+│ │    Price Bid!           │ │
+│ └─────────────────────────┘ │
+├─────────────────────────────┤
+│  🏠    🔍    ❤️    📦    👤  │
+└─────────────────────────────┘
+```
+
+**Implementation:**
+```javascript
+const OrdersScreen = () => {
+  const [orders, setOrders] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Derive orders from completed bids + direct orders
+    const completedBids = JSON.parse(localStorage.getItem('tira_bids') || '[]')
+      .filter(b => b.status === 'completed');
+    const directOrders = JSON.parse(localStorage.getItem('tira_orders') || '[]');
+
+    const allOrders = [
+      ...completedBids.map(b => ({
+        id: b.orderId || `TIR${Date.now()}${Math.random().toString(36).substr(2, 5)}`.toUpperCase(),
+        product: b.product,
+        paidPrice: b.bidPrice,
+        originalPrice: b.currentPrice,
+        savings: b.currentPrice - b.bidPrice,
+        status: 'processing',
+        placedAt: b.completedAt || b.createdAt,
+        type: 'price_bid'
+      })),
+      ...directOrders
+    ].sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt));
+
+    setOrders(allOrders);
+  }, []);
+
+  return (
+    <div className="pb-20">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <h1 className="text-xl font-bold">My Orders</h1>
+      </div>
+
+      <div className="p-4">
+        {orders.length > 0 ? (
+          <div className="space-y-4">
+            {orders.map(order => (
+              <div key={order.id} className="border rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center">
+                  <span className="font-mono text-sm">#{order.id}</span>
+                  <span className="text-sm text-gray-500">
+                    {new Date(order.placedAt).toLocaleDateString('en-IN', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                
+                <div className="p-4 flex gap-3">
+                  <img 
+                    src={order.product?.image} 
+                    alt={order.product?.name}
+                    className="w-16 h-16 rounded-lg object-cover bg-gray-100"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium line-clamp-2">{order.product?.name}</p>
+                    <p className="text-[#E91E63] font-bold">₹{order.paidPrice}</p>
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 bg-gray-50 border-t">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-green-600">✅</span>
+                    <span className="capitalize">{order.status}</span>
+                  </div>
+                  {order.type === 'price_bid' && order.savings > 0 && (
+                    <p className="text-green-600 text-sm mt-1">
+                      💰 Saved ₹{order.savings} with Price Bid!
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-4xl mb-4">📦</p>
+            <p className="text-gray-500 mb-4">No orders yet</p>
+            <button
+              onClick={() => navigate('/search')}
+              className="text-[#E91E63] font-semibold"
+            >
+              Start Shopping →
+            </button>
+          </div>
+        )}
+      </div>
+
+      <BottomNav active="orders" />
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 10: ACCOUNT (`/account`)
+
+**Purpose:** Profile and settings hub
+
+**Layout:**
+```
+┌─────────────────────────────┐
+│  My Account                 │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │  👤  User Name          │ │
+│ │      +91 98765 43210    │ │
+│ └─────────────────────────┘ │
+│                             │
+│ [💳] Payment Methods     →  │
+│      Reserve Pay            │
+│                             │
+│ [📍] Saved Addresses     →  │
+│                             │
+│ [🔔] Notifications       →  │
+│                             │
+│ [🚪] Logout                 │
+│                             │
+├─────────────────────────────┤
+│  🏠    🔍    ❤️    📦    👤  │
+└─────────────────────────────┘
+```
+
+**Implementation:**
+```javascript
+const AccountScreen = () => {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('tira_user') || '{}');
+  const mandate = localStorage.getItem('tira_mandate');
+
+  const handleLogout = () => {
+    localStorage.removeItem('tira_session');
+    localStorage.removeItem('tira_user');
+    localStorage.removeItem('tira_mandate');
+    navigate('/login');
+  };
+
+  const menuItems = [
+    {
+      icon: '💳',
+      label: 'Payment Methods',
+      sublabel: mandate ? 'Reserve Pay Active ✅' : 'Setup Reserve Pay',
+      path: '/account/payments'
+    },
+    {
+      icon: '📍',
+      label: 'Saved Addresses',
+      sublabel: 'Manage delivery addresses',
+      path: '/account/addresses'
+    },
+    {
+      icon: '🔔',
+      label: 'Notifications',
+      sublabel: 'WhatsApp & App alerts',
+      path: '/account/notifications'
+    }
+  ];
+
+  return (
+    <div className="pb-20">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <h1 className="text-xl font-bold">My Account</h1>
+      </div>
+
+      {/* Profile Card */}
+      <div className="p-4">
+        <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-[#E91E63] rounded-full flex items-center justify-center text-white text-2xl">
+              {user.name?.[0] || '👤'}
+            </div>
+            <div>
+              <p className="font-bold text-lg">{user.name || 'TIRA User'}</p>
+              <p className="text-gray-500">+91 {user.phone}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Menu Items */}
+        <div className="space-y-2">
+          {menuItems.map(item => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className="w-full flex items-center gap-4 p-4 bg-white border rounded-xl hover:bg-gray-50"
+            >
+              <span className="text-2xl">{item.icon}</span>
+              <div className="flex-1 text-left">
+                <p className="font-medium">{item.label}</p>
+                <p className="text-sm text-gray-500">{item.sublabel}</p>
+              </div>
+              <span className="text-gray-400">→</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="w-full mt-6 p-4 text-red-500 font-medium border border-red-200 rounded-xl"
+        >
+          🚪 Logout
+        </button>
+      </div>
+
+      <BottomNav active="account" />
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 11: RESERVE PAY SETUP (`/account/payments`)
+
+**Purpose:** SBMD mandate setup - show QR code, poll for confirmation
+
+**Flow:**
+1. Check if mandate exists → Show status
+2. If no mandate → User enters amount → Generate QR via MCP
+3. User scans QR in UPI app → Completes mandate approval
+4. App polls and shows confirmation
+
+**Layout States:**
+
+**State 1: No Mandate**
+```
+┌─────────────────────────────┐
+│ ←  Payment Methods          │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │  ⚡ Reserve Pay         │ │
+│ │                         │ │
+│ │  Setup once, auto-buy   │ │
+│ │  when prices drop!      │ │
+│ │                         │ │
+│ │  Max Amount (₹)         │ │
+│ │  ┌───────────────────┐  │ │
+│ │  │ 5000              │  │ │
+│ │  └───────────────────┘  │ │
+│ │                         │ │
+│ │  [ GENERATE QR CODE ]   │ │
+│ │                         │ │
+│ │  Powered by Razorpay    │ │
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+**State 2: QR Displayed**
+```
+┌─────────────────────────────┐
+│ ←  Payment Methods          │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │  Scan to Setup          │ │
+│ │                         │ │
+│ │  ┌─────────────────┐    │ │
+│ │  │    [QR CODE]    │    │ │
+│ │  │  (from MCP)     │    │ │
+│ │  └─────────────────┘    │ │
+│ │                         │ │
+│ │  ── OR ──               │ │
+│ │  [ Open UPI App → ]     │ │
+│ │                         │ │
+│ │  ⏳ Waiting for         │ │
+│ │  confirmation...        │ │
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+**State 3: Mandate Active**
+```
+┌─────────────────────────────┐
+│ ←  Payment Methods          │
+├─────────────────────────────┤
+│ ┌─────────────────────────┐ │
+│ │  ✅ Reserve Pay Active  │ │
+│ │                         │ │
+│ │  Max: ₹5,000            │ │
+│ │  Available: ₹4,800      │ │
+│ │  ████████████░░ 96%     │ │
+│ │                         │ │
+│ │  Valid till: 15 Feb '25 │ │
+│ │                         │ │
+│ │  [Refresh Status]       │ │
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
+
+**MCP Integration:**
+```javascript
+const PaymentMethodsScreen = () => {
+  const [mandate, setMandate] = useState(null);
+  const [maxAmount, setMaxAmount] = useState('5000');
+  const [loading, setLoading] = useState(false);
+  const [qrData, setQrData] = useState(null); // { qrImage, intentLink }
+  const [isPolling, setIsPolling] = useState(false);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem('tira_user') || '{}');
+  const session = localStorage.getItem('tira_session');
+
+  // Check existing mandate on mount
+  useEffect(() => {
+    checkMandateStatus();
+  }, []);
+
+  const checkMandateStatus = async () => {
+    try {
+      const result = await invoke('Tira Agentic Shopping:get_token_masked_data', {
+        contact: user.phone
+      });
+
+      const confirmedToken = result.items?.find(t => t.status === 'confirmed');
+      if (confirmedToken) {
+        const mandateData = {
+          id: confirmedToken.id,
+          maxAmount: confirmedToken.max_amount / 100,
+          available: (confirmedToken.max_amount - (confirmedToken.amount_debited || 0)) / 100,
+          expiry: confirmedToken.expired_at,
+          customerId: confirmedToken.customer_id
+        };
+        setMandate(mandateData);
+        localStorage.setItem('tira_mandate', JSON.stringify(confirmedToken));
+        localStorage.setItem('tira_customer_id', confirmedToken.customer_id);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.log('No mandate found:', err);
+      return false;
+    }
+  };
+
+  const handleGenerateQR = async () => {
+    if (!maxAmount || Number(maxAmount) < 100) {
+      showToast('Enter amount ₹100 or more');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Step 1: Create order with mandate token
+      const orderResult = await invoke('Tira Agentic Shopping:create_order_with_masked_data', {
+        amount: Number(maxAmount) * 100,
+        currency: 'INR',
+        method: 'upi',
+        token: {
+          max_amount: Number(maxAmount) * 100,
+          frequency: 'as_presented',
+          type: 'single_block_multiple_debit'
+        },
+        session_cookie: session
+      });
+
+      // Step 2: Initiate payment to get QR/Intent
+      const paymentResult = await invoke('Tira Agentic Shopping:initiate_payment_with_masked_data', {
+        amount: 100, // ₹1 for setup
+        order_id: orderResult.id,
+        customer_id: orderResult.customer_id,
+        contact: user.phone,
+        upi_intent: true,
+        recurring: true,
+        force_terminal_id: 'term_RMD93ugGbBOhTp',
+        session_cookie: session
+      });
+
+      // Extract QR code and intent link from MCP response
+      // The MCP tool should return qr_code_image or similar
+      const qrImage = paymentResult.qr_code || paymentResult.qr_code_url || paymentResult.data?.qr_code;
+      const intentLink = paymentResult.upi_link || paymentResult.short_url || paymentResult.data?.upi_link;
+
+      if (qrImage || intentLink) {
+        setQrData({
+          qrImage: qrImage,
+          intentLink: intentLink,
+          orderId: orderResult.id,
+          customerId: orderResult.customer_id
+        });
+        startPolling();
+      } else {
+        showToast('Failed to generate QR', 'error');
+      }
+    } catch (err) {
+      console.error('QR generation failed:', err);
+      showToast('Failed to generate QR. Try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startPolling = () => {
+    setIsPolling(true);
+    let attempts = 0;
+    const maxAttempts = 90; // 90 × 2s = 3 minutes
+
+    const poll = setInterval(async () => {
+      attempts++;
+      const found = await checkMandateStatus();
+      
+      if (found) {
+        clearInterval(poll);
+        setIsPolling(false);
+        setQrData(null);
+        showToast('🎉 Reserve Pay activated!');
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        setIsPolling(false);
+        showToast('Timeout. Click Refresh after completing setup.', 'warning');
+      }
+    }, 2000);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 bg-white px-4 py-3 border-b flex items-center gap-3">
+        <button onClick={() => navigate('/account')}>← Back</button>
+        <h1 className="font-bold">Payment Methods</h1>
+      </div>
+
+      <div className="p-4">
+        {mandate ? (
+          // ✅ MANDATE ACTIVE
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">✅</span>
+              <h2 className="text-lg font-bold">Reserve Pay Active</h2>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Max Amount</span>
+                <span className="font-semibold">₹{mandate.maxAmount?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Available</span>
+                <span className="font-semibold text-green-600">₹{mandate.available?.toLocaleString()}</span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-green-500 h-2 rounded-full" 
+                  style={{ width: `${(mandate.available / mandate.maxAmount) * 100}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Valid Till</span>
+                <span>{mandate.expiry ? new Date(mandate.expiry).toLocaleDateString() : 'N/A'}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={checkMandateStatus}
+              className="w-full border border-gray-300 py-3 rounded-xl font-medium"
+            >
+              Refresh Status
+            </button>
+          </div>
+
+        ) : qrData ? (
+          // 📱 QR CODE VIEW
+          <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
+            <h2 className="text-lg font-bold mb-2">Scan to Setup Reserve Pay</h2>
+            <p className="text-gray-500 text-sm mb-4">
+              Scan with any UPI app to authorize ₹{maxAmount} limit
+            </p>
+
+            {/* QR Code from MCP */}
+            {qrData.qrImage && (
+              <div className="flex justify-center mb-4">
+                <img 
+                  src={qrData.qrImage} 
+                  alt="UPI QR Code" 
+                  className="w-52 h-52 border rounded-xl"
+                />
+              </div>
+            )}
+
+            <div className="text-gray-400 text-sm mb-4">── OR ──</div>
+
+            {qrData.intentLink && (
+              <a
+                href={qrData.intentLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full bg-[#E91E63] text-white py-3 rounded-xl font-semibold mb-4"
+              >
+                Open UPI App →
+              </a>
+            )}
+
+            {isPolling && (
+              <div className="flex items-center justify-center gap-2 text-gray-500">
+                <span className="animate-spin">⏳</span>
+                <span>Waiting for confirmation...</span>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 mt-4">Powered by Razorpay Reserve Pay</p>
+          </div>
+
+        ) : (
+          // 🆕 SETUP VIEW
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">⚡</span>
+              <h2 className="text-lg font-bold">Reserve Pay</h2>
+            </div>
+
+            <p className="text-gray-500 text-sm mb-6">
+              Setup once, and we'll auto-purchase products when your target price is matched!
+            </p>
+
+            <div className="mb-6">
+              <label className="text-sm text-gray-600 mb-2 block">Maximum Amount (₹)</label>
+              <input
+                type="number"
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                placeholder="e.g., 5000"
+                className="w-full border-2 rounded-xl px-4 py-3 focus:border-[#E91E63] outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Maximum amount that can be auto-debited
+              </p>
+            </div>
+
+            <button
+              onClick={handleGenerateQR}
+              disabled={loading}
+              className="w-full bg-[#E91E63] text-white py-4 rounded-xl font-semibold disabled:opacity-50"
+            >
+              {loading ? 'Generating...' : 'GENERATE QR CODE'}
+            </button>
+
+            <p className="text-xs text-gray-400 text-center mt-4">
+              Powered by Razorpay UPI Reserve Pay
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+### SCREEN 12: ADDRESSES (`/account/addresses`)
+
+**MCP Integration:**
+```javascript
+const AddressesScreen = () => {
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const { invoke } = useMCP();
+  const navigate = useNavigate();
+  
+  const session = localStorage.getItem('tira_session');
+
+  useEffect(() => {
+    fetchAddresses();
+  }, []);
+
+  const fetchAddresses = async () => {
+    setLoading(true);
+    try {
+      const result = await invoke('Tira Agentic Shopping:get_address', {
+        cookies: session
+      });
+      setAddresses(result.addresses || result.address || []);
+    } catch (err) {
+      console.error('Failed to fetch addresses:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAddress = async (data) => {
+    try {
+      await invoke('Tira Agentic Shopping:add_address', {
+        address: data.street,
+        area: data.area,
+        area_code: data.pincode,
+        state: data.state,
+        city: data.city,
+        pincode: data.pincode,
+        cookies: session
+      });
+      showToast('Address added!');
+      setShowAddForm(false);
+      fetchAddresses();
+    } catch (err) {
+      showToast('Failed to add address', 'error');
+    }
+  };
+
+  // ... rest of component with UI
+};
+```
+
+---
+
+## ADMIN PANEL (`/admin`)
+
+### Purpose
+Simulate price drops to trigger automatic purchases during demo.
+
+### Layout
+```
+┌─────────────────────────────┐
+│  🔧 TIRA Admin Panel        │
+├─────────────────────────────┤
+│  Demo User: +91 9876543210  │
+│  [Refresh Bids]             │
+│                             │
+│ ── Active Bids ───────────  │
+│ ┌─────────────────────────┐ │
+│ │ Product: Lakme Lipstick │ │
+│ │ Current: ₹599           │ │
+│ │ Bid: ₹479               │ │
+│ │                         │ │
+│ │ New Price: [___]        │ │
+│ │ [TRIGGER PRICE DROP]    │ │
+│ └─────────────────────────┘ │
+│                             │
+│ ── Logs ─────────────────   │
+│ > 14:30:22 Price matched!   │
+│ > 14:30:23 Order created    │
+│ > 14:30:24 Payment done     │
+│ > 14:30:25 ✅ SUCCESS       │
+└─────────────────────────────┘
+```
+
+### Implementation
+```javascript
+const AdminPanel = () => {
+  const [activeBids, setActiveBids] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [demoPhone, setDemoPhone] = useState('9876543210');
+  const { invoke } = useMCP();
+
+  const addLog = (msg) => {
+    const time = new Date().toLocaleTimeString();
+    setLogs(prev => [{ time, msg }, ...prev].slice(0, 50));
+  };
+
+  const fetchBids = async () => {
+    try {
+      const result = await invoke('Tira Agentic Shopping:tira_list_price_bids', {
+        userId: demoPhone,
+        includeCompleted: false
+      });
+      setActiveBids(result.bids || []);
+      addLog('Fetched active bids');
+    } catch (err) {
+      addLog(`Error: ${err.message}`);
+    }
+  };
+
+  const triggerPriceDrop = async (bid, newPrice) => {
+    addLog(`Triggering price drop: ${bid.productName}`);
+    addLog(`Current: ₹${bid.currentPrice} → New: ₹${newPrice}`);
+
+    if (newPrice > bid.bidPrice) {
+      addLog(`❌ New price must be ≤ bid price (₹${bid.bidPrice})`);
+      return;
+    }
+
+    try {
+      // Start intensive monitoring
+      addLog('Starting price monitor...');
+      await invoke('Tira Agentic Shopping:tira_intensive_price_monitor', {
+        slug: bid.productSlug,
+        interval: 2,
+        duration: 60
+      });
+
+      // Since price matches, execute auto-purchase
+      addLog('Price matched! Executing auto-purchase...');
+      
+      // Get mandate token
+      const tokenResult = await invoke('Tira Agentic Shopping:get_token_masked_data', {
+        contact: bid.userPhone
+      });
+      const token = tokenResult.items?.find(t => t.status === 'confirmed');
+      
+      if (!token) {
+        addLog('❌ No active mandate for user');
+        return;
+      }
+      addLog(`Found mandate: ${token.id.slice(0, 15)}...`);
+
+      // Create order (₹1 for demo)
+      const orderResult = await invoke('Tira Agentic Shopping:create_order_with_masked_data', {
+        amount: 100, // ₹1
+        currency: 'INR',
+        customer_id: token.customer_id
+      });
+      addLog(`Order created: ${orderResult.id?.slice(0, 15)}...`);
+
+      // Debit from mandate
+      const paymentResult = await invoke('Tira Agentic Shopping:initiate_payment_with_masked_data', {
+        amount: 100,
+        order_id: orderResult.id,
+        token: token.id,
+        customer_id: token.customer_id,
+        contact: bid.userPhone,
+        recurring: true,
+        force_terminal_id: 'term_RMD93ugGbBOhTp'
+      });
+      addLog(`Payment initiated: ${paymentResult.id?.slice(0, 15)}...`);
+
+      // Mark success
+      await invoke('Tira Agentic Shopping:mark_order_success', {
+        totalAmount: bid.bidPrice.toString(),
+        transactionRefNumber: orderResult.id
+      });
+
+      addLog('─────────────────────');
+      addLog('✅ ORDER PLACED SUCCESSFULLY!');
+      addLog(`Product: ${bid.productName}`);
+      addLog(`Paid: ₹${bid.bidPrice} (Demo: ₹1 actual)`);
+      addLog(`Saved: ₹${bid.currentPrice - bid.bidPrice}`);
+      addLog('─────────────────────');
+
+      // Refresh bids
+      setTimeout(fetchBids, 2000);
+
+    } catch (err) {
+      addLog(`❌ Error: ${err.message}`);
+    }
+  };
+
+  useEffect(() => {
+    fetchBids();
+  }, [demoPhone]);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-4">
+      <h1 className="text-xl font-bold mb-4">🔧 TIRA Admin Panel</h1>
+
+      <div className="mb-4 flex gap-2">
+        <input
+          value={demoPhone}
+          onChange={(e) => setDemoPhone(e.target.value)}
+          placeholder="Demo user phone"
+          className="bg-gray-800 rounded px-3 py-2 flex-1"
+        />
+        <button onClick={fetchBids} className="bg-blue-600 px-4 py-2 rounded">
+          Refresh
+        </button>
+      </div>
+
+      {/* Active Bids */}
+      <div className="mb-6">
+        <h2 className="font-semibold mb-2">Active Bids ({activeBids.length})</h2>
+        {activeBids.map(bid => (
+          <AdminBidCard key={bid.id} bid={bid} onTrigger={triggerPriceDrop} />
+        ))}
+        {activeBids.length === 0 && (
+          <p className="text-gray-500">No active bids</p>
+        )}
+      </div>
+
+      {/* Logs */}
+      <div>
+        <h2 className="font-semibold mb-2">Logs</h2>
+        <div className="bg-gray-800 rounded p-3 h-64 overflow-auto font-mono text-sm">
+          {logs.map((log, i) => (
+            <div key={i} className="text-gray-300">
+              <span className="text-gray-500">{log.time}</span> {log.msg}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminBidCard = ({ bid, onTrigger }) => {
+  const [newPrice, setNewPrice] = useState(bid.bidPrice.toString());
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-4 mb-2">
+      <p className="font-medium">{bid.productName || bid.product?.name}</p>
+      <p className="text-sm text-gray-400">User: {bid.userPhone}</p>
+      <div className="flex gap-4 text-sm my-2">
+        <span>Current: ₹{bid.currentPrice || bid.purchasePrice}</span>
+        <span className="text-green-400">Bid: ₹{bid.bidPrice}</span>
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          value={newPrice}
+          onChange={(e) => setNewPrice(e.target.value)}
+          className="bg-gray-700 rounded px-3 py-2 flex-1"
+          placeholder="New price"
+        />
+        <button
+          onClick={() => onTrigger(bid, Number(newPrice))}
+          className="bg-red-600 px-4 py-2 rounded font-semibold"
+        >
+          TRIGGER
+        </button>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+## SHARED COMPONENTS
+
+### Bottom Navigation
+```javascript
+const BottomNav = ({ active }) => {
+  const navigate = useNavigate();
+  
+  const items = [
+    { id: 'home', icon: '🏠', label: 'Home', path: '/home' },
+    { id: 'search', icon: '🔍', label: 'Search', path: '/search' },
+    { id: 'wishlist', icon: '❤️', label: 'Bids', path: '/wishlist' },
+    { id: 'orders', icon: '📦', label: 'Orders', path: '/orders' },
+    { id: 'account', icon: '👤', label: 'Account', path: '/account' }
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2 z-50">
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => navigate(item.path)}
+          className={`flex flex-col items-center py-1 px-3 ${
+            active === item.id ? 'text-[#E91E63]' : 'text-gray-400'
+          }`}
+        >
+          <span className="text-xl">{item.icon}</span>
+          <span className="text-xs">{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+};
+```
+
+### Toast Notification
+```javascript
+const ToastContext = createContext();
+
+export const ToastProvider = ({ children }) => {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  return (
+    <ToastContext.Provider value={{ showToast }}>
+      {children}
+      <div className="fixed top-4 left-4 right-4 z-[100] space-y-2">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`px-4 py-3 rounded-xl shadow-lg text-white ${
+              toast.type === 'error' ? 'bg-red-500' : 
+              toast.type === 'warning' ? 'bg-orange-500' : 'bg-green-500'
+            }`}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+};
+
+export const useToast = () => useContext(ToastContext);
+```
+
+---
+
+## FILE STRUCTURE
+
+```
+/src
+  /components
+    BottomNav.jsx
+    Toast.jsx
+    ProductCard.jsx
+    BidCard.jsx
+    PriceBidSheet.jsx
+  /pages
+    Splash.jsx
+    Login.jsx
+    VerifyOTP.jsx
+    Home.jsx
+    Search.jsx
+    ProductDetail.jsx
+    Wishlist.jsx
+    Orders.jsx
+    Account.jsx
+    PaymentMethods.jsx
+    Addresses.jsx
+    Admin.jsx
+  /hooks
+    useMCP.js
+    useToast.js
+  /context
+    ToastContext.jsx
+  App.jsx
+  index.jsx
+  index.css
+```
+
+---
+
+## QUALITY CHECKLIST
+
+### Core Functionality
+- [ ] OTP Login works end-to-end
+- [ ] Product search returns real TIRA data
+- [ ] Product details page loads correctly
+- [ ] Price bid submission works
+- [ ] QR code generated for mandate setup
+- [ ] Mandate status detected after user approval
+- [ ] Admin panel fetches active bids
+- [ ] Admin price trigger executes auto-purchase
+- [ ] Order appears after successful purchase
+- [ ] WhatsApp notification sent
+
+### UI/UX
+- [ ] Mobile-responsive on all screens
+- [ ] Loading states for all MCP calls
+- [ ] Error states with retry options
+- [ ] TIRA brand colors consistent
+- [ ] Bottom nav works correctly
+- [ ] Toast notifications visible
+
+### Demo Ready
+- [ ] Can complete full flow in under 5 minutes
+- [ ] Admin panel accessible at /admin
+- [ ] QR code scannable on real phone
+- [ ] Works on Replit preview URL
+
+---
+
+## DEMO SCRIPT
+
+1. **Pre-Demo Setup**
+   - Open Admin panel (/admin) in separate tab
+   - Have test phone ready with UPI app
+
+2. **Demo Flow (5 mins)**
+   - Open app → Login with OTP
+   - Go to Account → Payment Methods
+   - Setup Reserve Pay (enter ₹5000, scan QR)
+   - Search for "lipstick"
+   - Open a product → "Buy at My Price"
+   - Set 20% discount → Submit bid
+   - Show Wishlist with active bid
+   - **Switch to Admin Panel**
+   - Enter matching price → Click TRIGGER
+   - **Switch back to app**
+   - Show notification / Order screen
+   - Celebrate savings! 🎉
+
+---
+
+## NOTES FOR REPLIT
+
+1. **MCP Setup:** Add the TIRA-Razorpay MCP server to project
+2. **Environment:** No env vars needed if MCP handles auth
+3. **Mobile Preview:** Test on phone via Replit preview URL
+4. **Assets:** Upload TIRA logo and banners
