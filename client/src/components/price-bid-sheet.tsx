@@ -97,9 +97,19 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       return;
     }
 
+    // Validate required product fields
+    if (!product.itemId || !product.articleId) {
+      toast({
+        title: 'Product unavailable',
+        description: 'Price bidding is not available for this product',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await invoke<{ bidId?: string; monitorId?: string }>('tira_price_bidding', {
+      const result = await invoke<{ bidId?: string; monitorId?: string; upi_intent_link?: string; payment_id?: string }>('tira_price_bidding', {
         productSlug: product.slug,
         productName: product.name,
         productItemId: product.itemId,
@@ -114,10 +124,24 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         addressConfirmed: true,
       });
 
+      console.log('[PriceBid] Result:', result);
+
+      // Parse the result - might be a markdown string
+      let bidId = result?.bidId;
+      let monitorId = result?.monitorId;
+      
+      // Handle markdown response
+      if (typeof result === 'string') {
+        const bidIdMatch = (result as string).match(/Bid ID:\s*([^\s\n]+)/);
+        const monitorIdMatch = (result as string).match(/Monitor ID:\s*([^\s\n]+)/);
+        bidId = bidIdMatch?.[1] || undefined;
+        monitorId = monitorIdMatch?.[1] || undefined;
+      }
+
       addBid({
-        id: result.bidId || Date.now().toString(),
-        bidId: result.bidId,
-        monitorId: result.monitorId,
+        id: bidId || Date.now().toString(),
+        bidId: bidId,
+        monitorId: monitorId,
         product: {
           name: product.name,
           brand: product.brand,

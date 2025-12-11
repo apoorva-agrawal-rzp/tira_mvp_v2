@@ -7,6 +7,7 @@ import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { parseProductDetailMarkdown } from '@/lib/mcp-parser';
+import { getCachedProduct, cacheProduct } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
 import { 
   ArrowLeft, 
@@ -27,6 +28,7 @@ export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
   const [product, setProduct] = useState<Product | null>(null);
+  const [cachedImages, setCachedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
@@ -40,19 +42,30 @@ export default function ProductDetailPage() {
     const fetchProduct = async () => {
       if (!slug) return;
       
+      // First, try to get cached product from search results (has images)
+      const cached = getCachedProduct(slug);
+      if (cached) {
+        // Extract images from cached product
+        const cachedImgUrls = cached.images?.map(i => i.url) || [];
+        if (cachedImgUrls.length > 0) {
+          setCachedImages(cachedImgUrls);
+        }
+      }
+      
       setLoading(true);
       try {
         const result = await invoke<unknown>('tira_get_product_by_slug', {
           slug,
         });
 
+        let parsedProduct: Product | null = null;
+
         // Handle markdown string response
         if (typeof result === 'string') {
           const parsed = parseProductDetailMarkdown(result);
           if (parsed) {
-            // Use the slug from URL if not parsed
             parsed.slug = parsed.slug || slug;
-            setProduct(parsed);
+            parsedProduct = parsed;
           }
         } else if (typeof result === 'object' && result !== null) {
           // Handle JSON response (fallback)
@@ -60,7 +73,7 @@ export default function ProductDetailPage() {
           const p = data.product ? (data.product as Record<string, unknown>) : data;
           
           if (p.name) {
-            setProduct({
+            parsedProduct = {
               slug: (p.slug as string) || slug,
               name: p.name as string,
               brand: p.brand as { name: string } | undefined,
@@ -77,16 +90,46 @@ export default function ProductDetailPage() {
               shortDescription: p.short_description as string | undefined,
               itemId: (p as { item_id?: number }).item_id || (p as { uid?: number }).uid,
               articleId: (p as { article_id?: string }).article_id,
-            });
+            };
           }
+        }
+
+        // Merge with cached data - use cached for missing fields
+        if (parsedProduct) {
+          // If API didn't return itemId/articleId, use cached values
+          if (cached) {
+            if (!parsedProduct.itemId && cached.itemId) {
+              parsedProduct.itemId = cached.itemId;
+            }
+            if (!parsedProduct.articleId && cached.articleId) {
+              parsedProduct.articleId = cached.articleId;
+            }
+            if (!parsedProduct.brandName && cached.brandName) {
+              parsedProduct.brandName = cached.brandName;
+            }
+            if (!parsedProduct.images?.length && cached.images?.length) {
+              parsedProduct.images = cached.images;
+            }
+          }
+          setProduct(parsedProduct);
+          // Update cache with merged product
+          cacheProduct(parsedProduct);
+        } else if (cached) {
+          // If API failed but we have cached data, use it
+          setProduct(cached);
         }
       } catch (err) {
         console.error('Failed to fetch product:', err);
-        toast({
-          title: 'Failed to load product',
-          description: 'Please try again',
-          variant: 'destructive',
-        });
+        // Try to use cached product as fallback
+        if (cached) {
+          setProduct(cached);
+        } else {
+          toast({
+            title: 'Failed to load product',
+            description: 'Please try again',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -109,7 +152,9 @@ export default function ProductDetailPage() {
     );
   }
 
-  const images = product.images?.map(i => i.url) || product.medias?.map(m => m.url) || [];
+  // Use product images, or fall back to cached images from search results
+  const productImages = product.images?.map(i => i.url) || product.medias?.map(m => m.url) || [];
+  const images = productImages.length > 0 ? productImages : cachedImages;
   const currentImage = images[currentImageIndex] || '';
   const brandName = product.brand?.name || product.brandName || 'TIRA';
   const effectivePrice = product.price?.effective?.min || product.effectivePrice || 0;
@@ -127,6 +172,16 @@ export default function ProductDetailPage() {
       return;
     }
 
+    // Validate required fields
+    if (!product.itemId || !product.articleId) {
+      toast({
+        title: 'Product unavailable',
+        description: 'This product cannot be added to cart right now',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setAddingToCart(true);
     try {
       await invoke('add_to_cart', {
@@ -139,8 +194,8 @@ export default function ProductDetailPage() {
       });
 
       addToCart({
-        itemId: product.itemId || 0,
-        articleId: product.articleId || '',
+        itemId: product.itemId,
+        articleId: product.articleId,
         name: product.name,
         brand: brandName,
         image: currentImage,
@@ -174,6 +229,17 @@ export default function ProductDetailPage() {
       setLocation('/login');
       return;
     }
+
+    // Validate required fields for price bidding
+    if (!product.itemId || !product.articleId) {
+      toast({
+        title: 'Product unavailable',
+        description: 'Price bidding is not available for this product',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setShowPriceBidSheet(true);
   };
 
@@ -191,7 +257,14 @@ export default function ProductDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setLocation('/search')}
+          onClick={() => {
+            // Use browser history to preserve search query and state
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              setLocation('/search');
+            }
+          }}
           data-testid="button-back-product"
         >
           <ArrowLeft className="w-5 h-5" />

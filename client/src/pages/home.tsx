@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
+import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
 import { Search, User, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,8 @@ export default function HomePage() {
         });
 
         const products = parseMCPProductResponse(result);
+        // Cache products for use in product detail page
+        cacheProducts(products);
         setTrendingProducts(products);
       } catch (err) {
         console.error('Failed to fetch trending:', err);

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMCP } from '@/hooks/use-mcp';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
+import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
 import { ArrowLeft, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,8 @@ export default function SearchPage() {
 
       const mappedProducts = parseMCPProductResponse(result);
       console.log('[Search] Parsed products:', mappedProducts.length);
+      // Cache products for use in product detail page
+      cacheProducts(mappedProducts);
       setProducts(mappedProducts);
     } catch (err) {
       console.error('Search failed:', err);

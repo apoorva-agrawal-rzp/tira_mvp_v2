@@ -14,6 +14,7 @@ export default function SplashPage() {
     const init = async () => {
       await new Promise((r) => setTimeout(r, 1500));
 
+      // If user has a session, verify it
       if (session) {
         try {
           const result = await invoke<{ isAuthenticated?: boolean; user?: { name?: string; email?: string } }>(
@@ -29,16 +30,19 @@ export default function SplashPage() {
                 email: result.user.email,
               });
             }
-            setLocation('/home');
-            return;
+          } else {
+            // Session invalid, clear it
+            setSession(null);
           }
         } catch (e) {
-          console.log('Session invalid, redirecting to login');
+          console.log('Session check failed, clearing session');
           setSession(null);
         }
       }
       
-      setLocation('/login');
+      // Always redirect to home - allow browsing without login
+      // Login will be required for cart/checkout operations
+      setLocation('/home');
     };
 
     init();
