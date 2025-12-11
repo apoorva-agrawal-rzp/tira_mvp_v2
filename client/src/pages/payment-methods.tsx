@@ -235,6 +235,7 @@ export default function PaymentMethodsPage() {
   const pollMandateStatus = async () => {
     let attempts = 0;
     const maxAttempts = 60;
+    const initialTokenIds = new Set(allTokens.map(t => t.id));
     const initialTokenCount = allTokens.length;
     
     const poll = async () => {
@@ -262,9 +263,13 @@ export default function PaymentMethodsPage() {
           t.recurring_details?.status === 'confirmed' || t.status === 'confirmed'
         );
         
-        // Check if we have more confirmed tokens than before
-        if (confirmedTokens.length > initialTokenCount) {
-          const newToken = confirmedTokens[0];
+        // Check for new tokens - either count increased or new token IDs
+        const newTokenDetected = confirmedTokens.length > initialTokenCount ||
+          confirmedTokens.some(t => !initialTokenIds.has(t.id));
+        
+        if (newTokenDetected && confirmedTokens.length > 0) {
+          // Find the newest token (one that wasn't in initial set)
+          const newToken = confirmedTokens.find(t => !initialTokenIds.has(t.id)) || confirmedTokens[0];
           const mappedToken: MandateToken = {
             id: newToken.id,
             customer_id: result.customer?.id || customerId || '',
@@ -336,9 +341,33 @@ export default function PaymentMethodsPage() {
                 <h2 className="text-lg font-bold">Complete UPI Setup</h2>
               </div>
 
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-muted-foreground mb-4">
                 Scan QR or click button below to authorize Reserve Pay mandate of ₹{maxAmount}
               </p>
+
+              {/* Display QR Code Image if available */}
+              {qrData.qrImageUrl && (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-white p-3 rounded-lg shadow-md">
+                    <img 
+                      src={qrData.qrImageUrl} 
+                      alt="UPI QR Code" 
+                      className="w-48 h-48 object-contain"
+                      data-testid="img-qr-code"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Generate QR from intent link if no image URL */}
+              {!qrData.qrImageUrl && qrData.intentLink && (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-white p-4 rounded-lg shadow-md text-center">
+                    <QrCode className="w-32 h-32 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Use button below to open UPI app</p>
+                  </div>
+                </div>
+              )}
 
               {qrData.intentLink && (
                 <a
@@ -346,6 +375,7 @@ export default function PaymentMethodsPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center w-full bg-primary text-primary-foreground py-4 rounded-xl font-semibold mb-4 gap-2"
+                  data-testid="link-upi-intent"
                 >
                   Open UPI App
                   <ExternalLink className="w-4 h-4" />
