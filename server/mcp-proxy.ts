@@ -88,7 +88,7 @@ export class McpProxy {
   /**
    * Call a tool on the remote MCP server
    */
-  async callTool(toolName: string, arguments_: Record<string, unknown> = {}): Promise<unknown> {
+  async callTool(toolName: string, arguments_: Record<string, unknown> = {}, retryCount = 0): Promise<unknown> {
     if (!this.sessionId) {
       await this.initializeSession();
     }
@@ -121,7 +121,17 @@ export class McpProxy {
 
     if (!response.ok || data.error) {
       console.error(`[MCP Proxy] Tool call failed:`, data.error);
-      throw new Error(`Tool call failed: ${data.error?.message || response.statusText}`);
+      
+      // Handle session expiration - retry once with a new session
+      const errorMessage = data.error?.message || response.statusText;
+      if ((errorMessage.includes('No valid session ID') || errorMessage.includes('Bad Gateway')) && retryCount < 1) {
+        console.log('[MCP Proxy] Session expired, re-initializing...');
+        this.sessionId = undefined;
+        await this.initializeSession();
+        return this.callTool(toolName, arguments_, retryCount + 1);
+      }
+      
+      throw new Error(`Tool call failed: ${errorMessage}`);
     }
 
     // Parse the result - MCP returns content as an array with text
