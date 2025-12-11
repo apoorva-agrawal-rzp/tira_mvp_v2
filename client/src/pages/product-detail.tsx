@@ -7,7 +7,6 @@ import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { parseProductDetailMarkdown } from '@/lib/mcp-parser';
-import { getCachedProduct } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
 import { 
   ArrowLeft, 
@@ -28,7 +27,6 @@ export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [, setLocation] = useLocation();
   const [product, setProduct] = useState<Product | null>(null);
-  const [cachedImages, setCachedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
@@ -41,12 +39,6 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const fetchProduct = async () => {
       if (!slug) return;
-      
-      // First, check cache for images from search results
-      const cached = getCachedProduct(slug);
-      if (cached?.images?.[0]?.url) {
-        setCachedImages(cached.images.map(i => i.url));
-      }
       
       setLoading(true);
       try {
@@ -117,9 +109,7 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Use cached images from search results if product detail doesn't have them
-  const productImages = product.images?.map(i => i.url) || product.medias?.map(m => m.url) || [];
-  const images = productImages.length > 0 ? productImages : cachedImages;
+  const images = product.images?.map(i => i.url) || product.medias?.map(m => m.url) || [];
   const currentImage = images[currentImageIndex] || '';
   const brandName = product.brand?.name || product.brandName || 'TIRA';
   const effectivePrice = product.price?.effective?.min || product.effectivePrice || 0;
