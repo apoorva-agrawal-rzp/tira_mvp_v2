@@ -114,10 +114,12 @@ export default function VerifyOTPPage() {
         '';
       
       // Extract user info from various possible response formats
-      const userInfo = result.authentication?.user_info || result.response?.user || result.user;
-      const firstName = userInfo?.first_name || result.user?.name?.split(' ')[0] || result.name || '';
-      const lastName = userInfo?.last_name || '';
-      const email = userInfo?.emails?.[0]?.email || result.user?.email || result.email || '';
+      const authUserInfo = result.authentication?.user_info;
+      const responseUser = result.response?.user;
+      const directUser = result.user;
+      const firstName = authUserInfo?.first_name || responseUser?.first_name || directUser?.first_name || directUser?.name?.split(' ')[0] || result.name || '';
+      const lastName = authUserInfo?.last_name || responseUser?.last_name || directUser?.last_name || '';
+      const email = authUserInfo?.emails?.[0]?.email || responseUser?.emails?.[0]?.email || directUser?.email || result.email || '';
       const fullName = lastName ? `${firstName} ${lastName}` : firstName;
 
       setSession(sessionCookie);

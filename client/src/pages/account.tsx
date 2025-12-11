@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { BottomNav } from '@/components/bottom-nav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
+import { useMCP } from '@/hooks/use-mcp';
 import { useToast } from '@/hooks/use-toast';
 import { 
   User, 
@@ -12,6 +14,7 @@ import {
   LogOut, 
   ChevronRight,
   Phone,
+  Mail,
   Settings,
   HelpCircle,
   Shield
@@ -55,8 +58,57 @@ function MenuItem({ icon: Icon, label, description, onClick, danger }: MenuItemP
 
 export default function AccountPage() {
   const [, setLocation] = useLocation();
-  const { user, phone, logout } = useAppStore();
+  const [loading, setLoading] = useState(false);
+  const { user, phone, session, setUser, logout } = useAppStore();
+  const { invoke } = useMCP();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (session && phone && !user?.name) {
+      fetchUserDetails();
+    }
+  }, [session, phone]);
+
+  const fetchUserDetails = async () => {
+    if (!session || !phone) return;
+    
+    setLoading(true);
+    try {
+      const result = await invoke<{
+        user?: {
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+          phone?: string;
+        };
+        is_authenticated?: boolean;
+        authenticated?: boolean;
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+      }>('check_user_session', {
+        cookies: session,
+      });
+
+      const userInfo = result.user || result;
+      const firstName = userInfo.first_name || '';
+      const lastName = userInfo.last_name || '';
+      const email = userInfo.email || user?.email || '';
+      const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+
+      if (fullName || email) {
+        setUser({
+          phone: phone || '',
+          name: fullName || user?.name || '',
+          email: email,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch user details:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -79,19 +131,24 @@ export default function AccountPage() {
       </header>
 
       <div className="p-4 space-y-4">
-        <Card className="p-4">
+        <Card className="p-4" data-testid="card-user-profile">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <User className="w-8 h-8 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-lg">{user?.name || 'TIRA User'}</p>
+              <p className="font-bold text-lg" data-testid="text-user-name">
+                {user?.name || 'TIRA User'}
+              </p>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="w-4 h-4" />
-                <span className="text-sm">{formatPhone(phone)}</span>
+                <span className="text-sm" data-testid="text-user-phone">{formatPhone(phone)}</span>
               </div>
               {user?.email && (
-                <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="w-4 h-4" />
+                  <span className="text-sm truncate" data-testid="text-user-email">{user.email}</span>
+                </div>
               )}
             </div>
           </div>

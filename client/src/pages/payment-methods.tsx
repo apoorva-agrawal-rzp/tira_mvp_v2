@@ -18,7 +18,8 @@ import {
   ExternalLink,
   Shield,
   Wallet,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ export default function PaymentMethodsPage() {
   const [qrData, setQrData] = useState<{ qrCode?: string; intentLink?: string; qrImageUrl?: string } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [showAddNewMandate, setShowAddNewMandate] = useState(false);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { user, session, mandate, setMandate, setCustomerId: storeSetCustomerId } = useAppStore();
@@ -145,7 +147,7 @@ export default function PaymentMethodsPage() {
         }>('get_token_masked_data', {
           contact: user?.phone,
         });
-        custId = customerResult.customer?.id || customerResult.customer_id || undefined;
+        custId = customerResult.customer?.id || customerResult.customer_id || null;
         if (custId) {
           setCustomerId(custId);
         }
@@ -501,6 +503,80 @@ export default function PaymentMethodsPage() {
             </li>
           </ul>
         </div>
+
+        {/* Add New Mandate Section - Shows when tokens exist but user wants to add more */}
+        {token && !qrData && !showAddNewMandate && (
+          <Card className="p-4">
+            <Button
+              onClick={() => setShowAddNewMandate(true)}
+              variant="outline"
+              className="w-full py-5"
+              data-testid="button-add-mandate"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Add Another Reserve Pay Mandate
+            </Button>
+          </Card>
+        )}
+
+        {/* New Mandate Form */}
+        {showAddNewMandate && !qrData && (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-6 h-6 text-primary" />
+                <h2 className="text-lg font-bold">New Reserve Pay</h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAddNewMandate(false)}
+              >
+                <XCircle className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <p className="text-muted-foreground text-sm mb-6">
+              Setup an additional Reserve Pay mandate for higher limits or different UPI accounts.
+            </p>
+
+            <div className="mb-6">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Maximum Amount (₹)
+              </label>
+              <Input
+                type="number"
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+                placeholder="e.g., 5000"
+                className="h-12"
+                data-testid="input-new-max-amount"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Maximum amount that can be auto-debited for purchases
+              </p>
+            </div>
+
+            <Button
+              onClick={() => {
+                handleGenerateQR();
+                setShowAddNewMandate(false);
+              }}
+              disabled={generatingQR}
+              className="w-full py-6 text-base font-semibold"
+              data-testid="button-generate-new-qr"
+            >
+              {generatingQR ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span className="ml-2">Generating...</span>
+                </>
+              ) : (
+                'SETUP RESERVE PAY'
+              )}
+            </Button>
+          </Card>
+        )}
 
         {/* Existing Reserve Pay Tokens */}
         {allTokens.length > 0 && (

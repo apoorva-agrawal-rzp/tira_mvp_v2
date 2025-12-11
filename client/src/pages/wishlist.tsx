@@ -63,7 +63,14 @@ export default function WishlistPage() {
 
   const handleRemoveBid = async (bid: PriceBid) => {
     try {
-      if (bid.monitorId) {
+      // Use bidId if available (for price bids), otherwise use monitorId (for monitors)
+      if (bid.bidId) {
+        // Try to remove the price bid
+        await invoke('tira_delete_price_monitor', {
+          monitorId: bid.bidId,
+        });
+      } else if (bid.monitorId) {
+        // Fall back to deleting by monitorId
         await invoke('tira_delete_price_monitor', {
           monitorId: bid.monitorId,
         });
@@ -72,13 +79,15 @@ export default function WishlistPage() {
       removeBid(bid.id);
       toast({
         title: 'Removed from Wishlist',
-        description: 'Your price bid has been cancelled',
+        description: 'Your price tracking has been cancelled',
       });
     } catch (err) {
+      console.error('Failed to remove bid:', err);
+      // Still remove from local state if API fails
+      removeBid(bid.id);
       toast({
-        title: 'Failed to remove',
-        description: 'Please try again',
-        variant: 'destructive',
+        title: 'Removed from Wishlist',
+        description: 'Item removed locally',
       });
     }
   };
