@@ -18,7 +18,7 @@ import {
   Settings,
   HelpCircle,
   Shield,
-  ShoppingCart
+  ShoppingBag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -176,10 +176,10 @@ export default function AccountPage() {
 
         <Card className="overflow-hidden">
           <MenuItem
-            icon={ShoppingCart}
-            label="My Cart"
-            description="View & manage cart items"
-            onClick={() => setLocation('/account/cart')}
+            icon={ShoppingBag}
+            label="My Bag"
+            description="View & manage bag items"
+            onClick={() => setLocation('/account/bag')}
           />
           <div className="border-t border-border" />
           <MenuItem

@@ -1,174 +1,64 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LoadingScreen, LoadingSpinner } from '@/components/loading-screen';
+import { LoadingSpinner } from '@/components/loading-screen';
 import { ProductImage } from '@/components/product-image';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft, 
-  ShoppingCart, 
+  ShoppingBag, 
   Trash2, 
   Plus,
   Minus,
-  ShoppingBag
 } from 'lucide-react';
 
-interface CartItem {
-  id: string;
-  name: string;
-  brand?: string;
-  image?: string;
-  price: number;
-  mrp?: number;
-  quantity: number;
-  size?: string;
-  articleId?: string;
-  itemId?: number;
-}
-
-interface CartResponse {
-  cart?: {
-    items?: Array<{
-      item?: {
-        uid?: number;
-        name?: string;
-        brand?: { name?: string };
-        images?: Array<{ url?: string }>;
-      };
-      article?: {
-        uid?: string;
-        price?: {
-          effective?: number;
-          marked?: number;
-        };
-      };
-      quantity?: number;
-      size?: string;
-    }>;
-  };
-  items?: Array<{
-    product?: {
-      name?: string;
-      brand?: { name?: string };
-      images?: Array<{ url?: string }>;
-    };
-    price?: {
-      effective?: number;
-      marked?: number;
-    };
-    quantity?: number;
-    article_id?: string;
-    item_id?: number;
-  }>;
-}
-
-export default function CartPage() {
-  const [loading, setLoading] = useState(true);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [removingId, setRemovingId] = useState<string | null>(null);
+export default function BagPage() {
+  const [removingId, setRemovingId] = useState<number | null>(null);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
-  const { session, user } = useAppStore();
+  const { session, cart, removeFromCart, updateCartQuantity } = useAppStore();
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
-  const fetchCart = async () => {
-    if (!session) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+  const handleRemoveItem = async (itemId: number, articleId: string, name: string) => {
+    setRemovingId(itemId);
     try {
-      const result = await invoke<CartResponse>('add_to_cart', {
-        items: [],
-        sessionCookie: session,
-        skipAuthCheck: true,
-      });
+      if (session) {
+        await invoke('add_to_cart', {
+          items: [{
+            item_id: itemId,
+            article_id: articleId,
+            quantity: 0,
+          }],
+          sessionCookie: session,
+        });
+      }
 
-      const items = result.cart?.items || result.items || [];
-      const mappedItems: CartItem[] = items.map((item, idx) => {
-        const product = (item as { item?: Record<string, unknown> }).item || 
-                       (item as { product?: Record<string, unknown> }).product;
-        const article = (item as { article?: Record<string, unknown> }).article;
-        const brandObj = product?.brand as { name?: string } | undefined;
-        const imagesArr = product?.images as Array<{ url?: string }> | undefined;
-        const priceObj = article?.price as { effective?: number; marked?: number } | undefined ||
-                        (item as { price?: { effective?: number; marked?: number } }).price;
-        
-        return {
-          id: String((product?.uid || (item as { article_id?: string }).article_id || idx)),
-          name: String(product?.name || 'Product'),
-          brand: brandObj?.name,
-          image: imagesArr?.[0]?.url,
-          price: priceObj?.effective || 0,
-          mrp: priceObj?.marked,
-          quantity: (item as { quantity?: number }).quantity || 1,
-          size: (item as { size?: string }).size,
-          articleId: String(article?.uid || (item as { article_id?: string }).article_id || ''),
-          itemId: Number(product?.uid || (item as { item_id?: number }).item_id || 0),
-        };
-      });
-
-      setCartItems(mappedItems);
-    } catch (err) {
-      console.error('Failed to fetch cart:', err);
-      toast({
-        title: 'Failed to load cart',
-        description: 'Please try again',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRemoveItem = async (item: CartItem) => {
-    setRemovingId(item.id);
-    try {
-      await invoke('add_to_cart', {
-        items: [{
-          item_id: item.itemId,
-          article_id: item.articleId,
-          quantity: 0,
-        }],
-        sessionCookie: session,
-      });
-
-      setCartItems(prev => prev.filter(i => i.id !== item.id));
+      removeFromCart(itemId);
       toast({
         title: 'Item removed',
-        description: `${item.name} has been removed from your cart`,
+        description: `${name} has been removed from your bag`,
       });
     } catch (err) {
       console.error('Failed to remove item:', err);
+      removeFromCart(itemId);
       toast({
-        title: 'Failed to remove item',
-        description: 'Please try again',
-        variant: 'destructive',
+        title: 'Item removed locally',
+        description: `${name} has been removed from your bag`,
       });
     } finally {
       setRemovingId(null);
     }
   };
 
-  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const totalSavings = cartItems.reduce((sum, item) => {
-    if (item.mrp && item.mrp > item.price) {
-      return sum + ((item.mrp - item.price) * item.quantity);
-    }
-    return sum;
-  }, 0);
+  const handleQuantityChange = (itemId: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+    updateCartQuantity(itemId, newQuantity);
+  };
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -177,24 +67,24 @@ export default function CartPage() {
           variant="ghost"
           size="icon"
           onClick={() => setLocation('/account')}
-          data-testid="button-back-cart"
+          data-testid="button-back-from-bag"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-bold">My Cart</h1>
-        {cartItems.length > 0 && (
+        <h1 className="text-lg font-bold">My Bag</h1>
+        {cart.length > 0 && (
           <span className="ml-auto text-sm text-muted-foreground">
-            {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
+            {cart.length} item{cart.length !== 1 ? 's' : ''}
           </span>
         )}
       </header>
 
       <div className="p-4 space-y-4">
-        {cartItems.length > 0 ? (
+        {cart.length > 0 ? (
           <>
             <div className="space-y-3">
-              {cartItems.map((item) => (
-                <Card key={item.id} className="p-3" data-testid={`cart-item-${item.id}`}>
+              {cart.map((item) => (
+                <Card key={item.itemId} className="p-3" data-testid={`bag-item-${item.itemId}`}>
                   <div className="flex gap-3">
                     <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                       <ProductImage
@@ -209,37 +99,40 @@ export default function CartPage() {
                       )}
                       <p className="font-medium text-sm line-clamp-2 mb-1">{item.name}</p>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold">₹{item.price}</span>
-                        {item.mrp && item.mrp > item.price && (
-                          <>
-                            <span className="text-sm text-muted-foreground line-through">
-                              ₹{item.mrp}
-                            </span>
-                            <span className="text-xs text-green-600 font-medium">
-                              {Math.round(((item.mrp - item.price) / item.mrp) * 100)}% off
-                            </span>
-                          </>
-                        )}
+                        <span className="font-bold">₹{item.price.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 bg-muted rounded-lg">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => handleQuantityChange(item.itemId, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            data-testid={`button-decrease-${item.itemId}`}
+                          >
                             <Minus className="w-3 h-3" />
                           </Button>
                           <span className="font-medium text-sm w-6 text-center">{item.quantity}</span>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
+                            data-testid={`button-increase-${item.itemId}`}
+                          >
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemoveItem(item)}
-                          disabled={removingId === item.id}
+                          onClick={() => handleRemoveItem(item.itemId, item.articleId, item.name)}
+                          disabled={removingId === item.itemId}
                           className="text-destructive"
-                          data-testid={`button-remove-${item.id}`}
+                          data-testid={`button-remove-${item.itemId}`}
                         >
-                          {removingId === item.id ? (
+                          {removingId === item.itemId ? (
                             <LoadingSpinner size="sm" />
                           ) : (
                             <Trash2 className="w-4 h-4" />
@@ -257,14 +150,8 @@ export default function CartPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>₹{totalAmount}</span>
+                  <span>₹{totalAmount.toLocaleString()}</span>
                 </div>
-                {totalSavings > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>You Save</span>
-                    <span>-₹{totalSavings}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Delivery</span>
                   <span className="text-green-600">FREE</span>
@@ -272,7 +159,7 @@ export default function CartPage() {
                 <div className="border-t border-border pt-2 mt-2">
                   <div className="flex justify-between font-bold text-base">
                     <span>Total</span>
-                    <span>₹{totalAmount}</span>
+                    <span>₹{totalAmount.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -295,13 +182,13 @@ export default function CartPage() {
         ) : (
           <div className="text-center py-16">
             <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <ShoppingCart className="w-10 h-10 text-muted-foreground" />
+              <ShoppingBag className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">Your cart is empty</h3>
+            <h3 className="font-semibold mb-2">Your bag is empty</h3>
             <p className="text-muted-foreground mb-6 text-sm">
-              Start shopping and add items to your cart
+              Start shopping and add items to your bag
             </p>
-            <Button onClick={() => setLocation('/search')}>
+            <Button onClick={() => setLocation('/search')} data-testid="button-start-shopping">
               Start Shopping
             </Button>
           </div>

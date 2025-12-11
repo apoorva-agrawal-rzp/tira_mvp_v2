@@ -16,7 +16,7 @@ import AccountPage from "@/pages/account";
 import PaymentMethodsPage from "@/pages/payment-methods";
 import AddressesPage from "@/pages/addresses";
 import AdminPage from "@/pages/admin";
-import CartPage from "@/pages/cart";
+import BagPage from "@/pages/cart";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,7 +33,7 @@ function Router() {
       <Route path="/account" component={AccountPage} />
       <Route path="/account/payment-methods" component={PaymentMethodsPage} />
       <Route path="/account/addresses" component={AddressesPage} />
-      <Route path="/account/cart" component={CartPage} />
+      <Route path="/account/bag" component={BagPage} />
       <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>

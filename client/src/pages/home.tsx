@@ -9,7 +9,7 @@ import { useAppStore } from '@/lib/store';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
-import { Search, User, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap, ShoppingCart } from 'lucide-react';
+import { Search, User, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const categories = [
@@ -67,11 +67,11 @@ export default function HomePage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation('/orders')}
+            onClick={() => setLocation('/account/bag')}
             className="relative"
-            data-testid="cart-button"
+            data-testid="bag-button"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingBag className="w-5 h-5" />
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
                 {cartCount}
