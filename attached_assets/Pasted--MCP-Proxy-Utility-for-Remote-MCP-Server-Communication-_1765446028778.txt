@@ -1,0 +1,129 @@
+/**
+ * MCP Proxy Utility for Remote MCP Server Communication
+ */
+
+import { McpRequest, McpResponse, RazorpayProxyConfig } from '../types/razorpay.js';
+
+export class McpProxy {
+  private config: RazorpayProxyConfig;
+  private sessionId?: string;
+
+  constructor(config: RazorpayProxyConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Initialize session with remote MCP server
+   */
+  async initializeSession(): Promise<string> {
+    const initRequest: McpRequest = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {
+          tools: {}
+        },
+        clientInfo: {
+          name: 'bigbasket-mcp-proxy',
+          version: '1.0.0'
+        }
+      }
+    };
+
+    const response = await fetch(this.config.mcpUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Authorization': this.config.authHeader
+      },
+      body: JSON.stringify(initRequest)
+    });
+
+    // Extract session ID from headers
+    const sessionId = response.headers.get('mcp-session-id');
+    if (sessionId) {
+      this.sessionId = sessionId;
+    }
+
+    const data = await response.json();
+    
+    if (!response.ok || data.error) {
+      throw new Error(`MCP initialization failed: ${data.error?.message || response.statusText}`);
+    }
+
+    return sessionId || 'no-session-id';
+  }
+
+  /**
+   * Call a tool on the remote MCP server
+   */
+  async callTool(toolName: string, arguments_: any): Promise<any> {
+    if (!this.sessionId) {
+      await this.initializeSession();
+    }
+
+    const toolRequest: McpRequest = {
+      jsonrpc: '2.0',
+      id: Date.now(),
+      method: 'tools/call',
+      params: {
+        name: toolName,
+        arguments: arguments_
+      }
+    };
+
+    const response = await fetch(this.config.mcpUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': this.config.authHeader,
+        'Mcp-Session-Id': this.sessionId || ''
+      },
+      body: JSON.stringify(toolRequest)
+    });
+
+    const data: McpResponse = await response.json();
+
+    if (!response.ok || data.error) {
+      throw new Error(`Tool call failed: ${data.error?.message || response.statusText}`);
+    }
+
+    return data.result;
+  }
+
+  /**
+   * List available tools on the remote MCP server
+   */
+  async listTools(): Promise<any[]> {
+    if (!this.sessionId) {
+      await this.initializeSession();
+    }
+
+    const listRequest: McpRequest = {
+      jsonrpc: '2.0',
+      id: Date.now(),
+      method: 'tools/list'
+    };
+
+    const response = await fetch(this.config.mcpUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': this.config.authHeader,
+        'Mcp-Session-Id': this.sessionId || ''
+      },
+      body: JSON.stringify(listRequest)
+    });
+
+    const data: McpResponse = await response.json();
+
+    if (!response.ok || data.error) {
+      throw new Error(`List tools failed: ${data.error?.message || response.statusText}`);
+    }
+
+    return data.result?.tools || [];
+  }
+}

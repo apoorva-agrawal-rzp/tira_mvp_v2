@@ -6,6 +6,7 @@ import { PriceBidSheet } from '@/components/price-bid-sheet';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { parseProductDetailMarkdown } from '@/lib/mcp-parser';
 import type { Product } from '@shared/schema';
 import { 
   ArrowLeft, 
@@ -41,30 +42,43 @@ export default function ProductDetailPage() {
       
       setLoading(true);
       try {
-        const result = await invoke<{ product?: Record<string, unknown> }>('tira_get_product_by_slug', {
+        const result = await invoke<unknown>('tira_get_product_by_slug', {
           slug,
         });
 
-        if (result.product) {
-          const p = result.product;
-          setProduct({
-            slug: p.slug as string,
-            name: p.name as string,
-            brand: p.brand as { name: string } | undefined,
-            brandName: (p.brand as { name?: string })?.name,
-            images: p.images as Array<{ url: string }> | undefined,
-            medias: p.medias as Array<{ url: string }> | undefined,
-            price: p.price as { effective?: { min: number }; marked?: { min: number } } | undefined,
-            effectivePrice: (p.price as { effective?: { min: number } })?.effective?.min,
-            markedPrice: (p.price as { marked?: { min: number } })?.marked?.min,
-            discount: p.discount as string | undefined,
-            rating: p.rating as number | undefined,
-            ratingCount: p.ratingCount as number | undefined,
-            description: p.description as string | undefined,
-            shortDescription: p.short_description as string | undefined,
-            itemId: (p as { item_id?: number }).item_id || (p as { uid?: number }).uid,
-            articleId: (p as { article_id?: string }).article_id,
-          });
+        // Handle markdown string response
+        if (typeof result === 'string') {
+          const parsed = parseProductDetailMarkdown(result);
+          if (parsed) {
+            // Use the slug from URL if not parsed
+            parsed.slug = parsed.slug || slug;
+            setProduct(parsed);
+          }
+        } else if (typeof result === 'object' && result !== null) {
+          // Handle JSON response (fallback)
+          const data = result as Record<string, unknown>;
+          const p = data.product ? (data.product as Record<string, unknown>) : data;
+          
+          if (p.name) {
+            setProduct({
+              slug: (p.slug as string) || slug,
+              name: p.name as string,
+              brand: p.brand as { name: string } | undefined,
+              brandName: (p.brand as { name?: string })?.name,
+              images: p.images as Array<{ url: string }> | undefined,
+              medias: p.medias as Array<{ url: string }> | undefined,
+              price: p.price as { effective?: { min: number }; marked?: { min: number } } | undefined,
+              effectivePrice: (p.price as { effective?: { min: number } })?.effective?.min,
+              markedPrice: (p.price as { marked?: { min: number } })?.marked?.min,
+              discount: p.discount as string | undefined,
+              rating: p.rating as number | undefined,
+              ratingCount: p.ratingCount as number | undefined,
+              description: p.description as string | undefined,
+              shortDescription: p.short_description as string | undefined,
+              itemId: (p as { item_id?: number }).item_id || (p as { uid?: number }).uid,
+              articleId: (p as { article_id?: string }).article_id,
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to fetch product:', err);

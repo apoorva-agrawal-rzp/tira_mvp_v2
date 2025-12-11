@@ -5,6 +5,7 @@ import { ProductCard, ProductCardSkeleton } from '@/components/product-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMCP } from '@/hooks/use-mcp';
+import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import type { Product } from '@shared/schema';
 import { ArrowLeft, Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,28 +52,13 @@ export default function SearchPage() {
     setHasSearched(true);
     
     try {
-      const result = await invoke<{ products?: Array<Record<string, unknown>> }>('get_products', {
+      const result = await invoke<unknown>('get_products', {
         query: searchQuery,
         limit: 20,
       });
 
-      const mappedProducts: Product[] = (result.products || []).map((p: Record<string, unknown>) => ({
-        id: String(p.uid || p.id || ''),
-        uid: p.uid as number,
-        slug: p.slug as string,
-        name: p.name as string,
-        brand: p.brand as { name: string } | undefined,
-        brandName: (p.brand as { name?: string })?.name,
-        images: p.images as Array<{ url: string }> | undefined,
-        medias: p.medias as Array<{ url: string }> | undefined,
-        price: p.price as { effective?: { min: number }; marked?: { min: number } } | undefined,
-        discount: p.discount as string | undefined,
-        rating: p.rating as number | undefined,
-        ratingCount: p.ratingCount as number | undefined,
-        itemId: (p as { item_id?: number }).item_id,
-        articleId: (p as { article_id?: string }).article_id,
-      }));
-
+      const mappedProducts = parseMCPProductResponse(result);
+      console.log('[Search] Parsed products:', mappedProducts.length);
       setProducts(mappedProducts);
     } catch (err) {
       console.error('Search failed:', err);
