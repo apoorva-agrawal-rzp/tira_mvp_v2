@@ -49,7 +49,7 @@ export default function ProductDetailPage() {
   const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const { invoke } = useMCP();
-  const { session, user, addToCart } = useAppStore();
+  const { session, user, addToCart, isHydrated } = useAppStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -156,6 +156,14 @@ export default function ProductDetailPage() {
   const discountPercent = hasDiscount ? Math.round(((markedPrice - effectivePrice) / markedPrice) * 100) : 0;
 
   const handleAddToBag = async () => {
+    if (!isHydrated) {
+      toast({
+        title: 'Please wait',
+        description: 'Loading your session...',
+      });
+      return;
+    }
+
     if (!session || !user) {
       toast({
         title: 'Please login',
@@ -200,19 +208,48 @@ export default function ProductDetailPage() {
         title: 'Added to bag!',
         description: product.name,
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Add to cart failed:', err);
-      toast({
-        title: 'Failed to add to bag',
-        description: 'Please try again',
-        variant: 'destructive',
-      });
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      
+      if (errorMessage.toLowerCase().includes('session') || 
+          errorMessage.toLowerCase().includes('auth') ||
+          errorMessage.toLowerCase().includes('login')) {
+        toast({
+          title: 'Session expired',
+          description: 'Please login again',
+          variant: 'destructive',
+        });
+        setLocation('/login');
+      } else {
+        addToCart({
+          itemId: product.itemId!,
+          articleId: product.articleId!,
+          name: product.name,
+          brand: brandName,
+          image: images[0] || '',
+          price: effectivePrice,
+          quantity: 1,
+        });
+        toast({
+          title: 'Added to bag!',
+          description: product.name,
+        });
+      }
     } finally {
       setAddingToCart(false);
     }
   };
 
   const handleBuyAtMyPrice = () => {
+    if (!isHydrated) {
+      toast({
+        title: 'Please wait',
+        description: 'Loading your session...',
+      });
+      return;
+    }
+
     if (!session || !user) {
       toast({
         title: 'Please login',

@@ -1,10 +1,9 @@
 import { useLocation } from 'wouter';
-import { Home, Search, Heart, Package, User } from 'lucide-react';
+import { Home, Heart, Package, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { id: 'home', icon: Home, label: 'Home', path: '/home' },
-  { id: 'search', icon: Search, label: 'Search', path: '/search' },
   { id: 'wishlist', icon: Heart, label: 'Wishlist', path: '/wishlist' },
   { id: 'orders', icon: Package, label: 'Orders', path: '/orders' },
   { id: 'account', icon: User, label: 'Account', path: '/account' },

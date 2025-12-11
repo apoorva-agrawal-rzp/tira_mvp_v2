@@ -9,7 +9,7 @@ import { useAppStore } from '@/lib/store';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
-import { Search, User, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
+import { Search, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const categories = [
@@ -77,14 +77,6 @@ export default function HomePage() {
                 {cartCount}
               </span>
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation('/account')}
-            data-testid="account-button"
-          >
-            <User className="w-5 h-5" />
           </Button>
         </div>
       </header>
