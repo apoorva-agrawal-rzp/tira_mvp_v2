@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User, PriceBid, Order, CartItem, Address, MandateToken } from '@shared/schema';
 
 interface AppState {
@@ -10,8 +10,11 @@ interface AppState {
   bids: PriceBid[];
   orders: Order[];
   cart: CartItem[];
+  cartId: string | null;
   addresses: Address[];
   mandate: MandateToken | null;
+  customerId: string | null;
+  isHydrated: boolean;
   
   setSession: (session: string | null) => void;
   setOtpRequestId: (id: string | null) => void;
@@ -36,13 +39,17 @@ interface AppState {
   addAddress: (address: Address) => void;
   
   setMandate: (mandate: MandateToken | null) => void;
+  setCartId: (cartId: string | null) => void;
+  setCustomerId: (customerId: string | null) => void;
+  setHydrated: (hydrated: boolean) => void;
   
   logout: () => void;
+  isLoggedIn: () => boolean;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       session: null,
       otpRequestId: null,
       phone: null,
@@ -50,8 +57,11 @@ export const useAppStore = create<AppState>()(
       bids: [],
       orders: [],
       cart: [],
+      cartId: null,
       addresses: [],
       mandate: null,
+      customerId: null,
+      isHydrated: false,
       
       setSession: (session) => set({ session }),
       setOtpRequestId: (otpRequestId) => set({ otpRequestId }),
@@ -98,6 +108,9 @@ export const useAppStore = create<AppState>()(
       })),
       
       setMandate: (mandate) => set({ mandate }),
+      setCartId: (cartId) => set({ cartId }),
+      setCustomerId: (customerId) => set({ customerId }),
+      setHydrated: (isHydrated) => set({ isHydrated }),
       
       logout: () => set({
         session: null,
@@ -107,12 +120,37 @@ export const useAppStore = create<AppState>()(
         bids: [],
         orders: [],
         cart: [],
+        cartId: null,
         addresses: [],
         mandate: null,
+        customerId: null,
       }),
+      
+      isLoggedIn: () => {
+        const state = get();
+        return !!(state.session && state.user);
+      },
     }),
     {
       name: 'tira-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        session: state.session,
+        phone: state.phone,
+        user: state.user,
+        bids: state.bids,
+        orders: state.orders,
+        cart: state.cart,
+        cartId: state.cartId,
+        addresses: state.addresses,
+        mandate: state.mandate,
+        customerId: state.customerId,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated(true);
+        }
+      },
     }
   )
 );

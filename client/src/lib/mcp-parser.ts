@@ -1,9 +1,21 @@
 import type { Product } from '@shared/schema';
 
+export interface ProductDetail extends Product {
+  availability?: string;
+  stockCount?: number;
+  size?: string;
+  returnPolicy?: string;
+  codAvailable?: boolean;
+  deliveryEstimate?: string;
+  store?: string;
+  seller?: string;
+  specifications?: Record<string, string>;
+}
+
 /**
  * Parse product detail markdown response into a Product object
  */
-export function parseProductDetailMarkdown(markdown: string): Product | null {
+export function parseProductDetailMarkdown(markdown: string): ProductDetail | null {
   try {
     // Extract product name
     const nameMatch = markdown.match(/\*\*Name:\*\*\s*([^\n]+)/);
@@ -18,7 +30,7 @@ export function parseProductDetailMarkdown(markdown: string): Product | null {
     const slug = slugMatch ? slugMatch[1].trim() : '';
     
     // Extract article ID
-    const articleIdMatch = markdown.match(/Article ID:\s*([^\n]+)/);
+    const articleIdMatch = markdown.match(/Article ID:\s*([^\n•]+)/);
     const articleId = articleIdMatch ? articleIdMatch[1].trim() : '';
     
     // Extract store ID
@@ -31,15 +43,33 @@ export function parseProductDetailMarkdown(markdown: string): Product | null {
     
     // Extract availability
     const availabilityMatch = markdown.match(/\*\*Availability:\*\*\s*([^\n]+)/);
-    const isAvailable = availabilityMatch ? availabilityMatch[1].includes('In Stock') : false;
+    const availability = availabilityMatch ? availabilityMatch[1].trim() : '';
+    const isAvailable = availability.includes('In Stock');
+    
+    // Extract stock count
+    const stockMatch = availability.match(/(\d+)\s*available/);
+    const stockCount = stockMatch ? parseInt(stockMatch[1], 10) : 0;
+    
+    // Extract size
+    const sizeMatch = markdown.match(/\*\*Size:\*\*\s*([^\n]+)/);
+    const size = sizeMatch ? sizeMatch[1].trim() : '';
     
     // Extract return policy
     const returnMatch = markdown.match(/\*\*Return Policy:\*\*\s*([^\n]+)/);
-    const isReturnable = returnMatch ? returnMatch[1].includes('Returnable') : false;
+    const returnPolicy = returnMatch ? returnMatch[1].trim() : '';
+    const isReturnable = returnPolicy.includes('Returnable');
     
     // Extract COD
     const codMatch = markdown.match(/\*\*Cash on Delivery:\*\*\s*([^\n]+)/);
-    const isCodAvailable = codMatch ? codMatch[1].includes('Available') : false;
+    const codAvailable = codMatch ? codMatch[1].includes('Available') : false;
+    
+    // Extract delivery estimate
+    const deliveryMatch = markdown.match(/\*\*Delivery Estimate:\*\*\s*([^\n]+)/);
+    const deliveryEstimate = deliveryMatch ? deliveryMatch[1].trim() : '';
+    
+    // Extract store
+    const storeMatch = markdown.match(/\*\*Store:\*\*\s*([^\n]+)/);
+    const store = storeMatch ? storeMatch[1].trim() : '';
     
     // Extract seller
     const sellerMatch = markdown.match(/\*\*Seller:\*\*\s*([^\n]+)/);
@@ -47,7 +77,25 @@ export function parseProductDetailMarkdown(markdown: string): Product | null {
     
     // Extract MRP
     const mrpMatch = markdown.match(/MRP:\s*₹([\d,.]+)/);
-    const markedPrice = mrpMatch ? parseInt(mrpMatch[1].replace(/[,.]/g, '').slice(0, -2) || mrpMatch[1].replace(/,/g, ''), 10) : price;
+    let markedPrice = price;
+    if (mrpMatch) {
+      const mrpStr = mrpMatch[1].replace(/,/g, '');
+      // Handle decimals like "225.00"
+      markedPrice = parseInt(parseFloat(mrpStr).toString(), 10);
+    }
+    
+    // Extract specifications
+    const specifications: Record<string, string> = {};
+    const specSection = markdown.match(/\*\*Specifications:\*\*\n([\s\S]*?)(?=\n\n|\*\*Cart|$)/);
+    if (specSection) {
+      const specLines = specSection[1].split('\n');
+      for (const line of specLines) {
+        const specMatch = line.match(/•\s*([^:]+):\s*(.+)/);
+        if (specMatch) {
+          specifications[specMatch[1].trim()] = specMatch[2].trim();
+        }
+      }
+    }
 
     if (!name) {
       return null;
@@ -66,7 +114,15 @@ export function parseProductDetailMarkdown(markdown: string): Product | null {
       markedPrice,
       itemId,
       articleId,
-      description: `Seller: ${seller}. ${isReturnable ? 'Returnable within 15 days.' : ''} ${isCodAvailable ? 'Cash on Delivery available.' : ''}`,
+      availability,
+      stockCount,
+      size,
+      returnPolicy,
+      codAvailable,
+      deliveryEstimate,
+      store,
+      seller,
+      specifications,
     };
   } catch (e) {
     console.error('Error parsing product detail markdown:', e);
@@ -101,7 +157,7 @@ export function parseMarkdownProducts(markdown: string): Product[] {
       const priceMatch = block.match(/\*\*Price:\*\*\s*₹([\d,]+)/);
       const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 0;
       
-      // Extract original/marked price if available
+      // Extract original/marked price if available (strikethrough format)
       const markedPriceMatch = block.match(/~~₹([\d,]+)~~/);
       const markedPrice = markedPriceMatch ? parseInt(markedPriceMatch[1].replace(/,/g, ''), 10) : price;
       
@@ -109,9 +165,21 @@ export function parseMarkdownProducts(markdown: string): Product[] {
       const discountMatch = block.match(/\((\d+%\s*OFF)\)/i);
       const discount = discountMatch ? discountMatch[1] : undefined;
       
-      // Extract image URL
-      const imageMatch = block.match(/\[View Product Image\]\(([^)]+)\)/);
-      const imageUrl = imageMatch ? imageMatch[1] : '';
+      // Extract image URL - multiple patterns to catch different formats
+      let imageUrl = '';
+      const imagePatterns = [
+        /\*\*Image:\*\*\s*\[View Product Image\]\(([^)]+)\)/,
+        /\[View Product Image\]\(([^)]+)\)/,
+        /\[Product Image\]\(([^)]+)\)/,
+        /\(https:\/\/cdn\.tiraz5\.de[^)]+\)/,
+      ];
+      for (const pattern of imagePatterns) {
+        const match = block.match(pattern);
+        if (match) {
+          imageUrl = match[1] || match[0].replace(/[()]/g, '');
+          break;
+        }
+      }
       
       // Extract Item ID
       const itemIdMatch = block.match(/\*\*Item ID:\*\*\s*(\d+)/);

@@ -1,7 +1,6 @@
 import { useLocation } from 'wouter';
 import type { Product } from '@shared/schema';
-import { Star, Tag } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProductCardProps {
@@ -13,10 +12,11 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
   const [, setLocation] = useLocation();
   
   const imageUrl = product.images?.[0]?.url || product.medias?.[0]?.url || '';
-  const brandName = product.brand?.name || product.brandName || 'TIRA';
+  const brandName = product.brand?.name || product.brandName || '';
   const effectivePrice = product.price?.effective?.min || product.effectivePrice || 0;
   const markedPrice = product.price?.marked?.min || product.markedPrice;
-  const discount = product.discount || (product.discountPercent ? `${product.discountPercent}% OFF` : null);
+  const hasDiscount = markedPrice && markedPrice > effectivePrice;
+  const discountPercent = hasDiscount ? Math.round((1 - effectivePrice / markedPrice) * 100) : 0;
 
   const handleClick = () => {
     setLocation(`/product/${product.slug}`);
@@ -26,34 +26,34 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
     return (
       <button
         onClick={handleClick}
-        className="w-36 flex-shrink-0 text-left group"
+        className="w-40 flex-shrink-0 text-left group bg-white dark:bg-card"
         data-testid={`product-card-compact-${product.slug}`}
       >
-        <div className="bg-muted rounded-xl aspect-square mb-2 overflow-hidden relative">
+        <div className="bg-neutral-50 dark:bg-muted aspect-square mb-3 overflow-hidden relative">
           {imageUrl ? (
             <img 
               src={imageUrl} 
               alt={product.name} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain p-2"
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-pink-50 to-pink-100 flex items-center justify-center">
-              <Tag className="w-8 h-8 text-muted-foreground" />
-            </div>
-          )}
-          {discount && (
-            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-md font-medium">
-              {discount}
+            <div className="w-full h-full bg-neutral-100 dark:bg-muted flex items-center justify-center">
+              <span className="text-neutral-400 text-xs">No image</span>
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground truncate">{brandName}</p>
-        <p className="text-sm font-medium line-clamp-2 leading-tight mb-1">{product.name}</p>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-primary">₹{effectivePrice.toLocaleString()}</span>
-          {markedPrice && markedPrice > effectivePrice && (
-            <span className="text-xs text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+        {brandName && (
+          <p className="text-[11px] text-neutral-500 dark:text-muted-foreground mb-0.5 uppercase tracking-wide">{brandName}</p>
+        )}
+        <p className="text-sm text-neutral-900 dark:text-foreground line-clamp-2 leading-snug mb-1.5">{product.name}</p>
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-sm font-semibold text-neutral-900 dark:text-foreground">₹{effectivePrice.toLocaleString()}</span>
+          {hasDiscount && (
+            <>
+              <span className="text-xs text-neutral-400 dark:text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+              <span className="text-xs text-primary font-medium">({discountPercent}% Off)</span>
+            </>
           )}
         </div>
       </button>
@@ -63,46 +63,46 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
   return (
     <button
       onClick={handleClick}
-      className="bg-card rounded-xl overflow-hidden border border-card-border shadow-sm text-left w-full group hover-elevate"
+      className="bg-white dark:bg-card overflow-hidden text-left w-full group"
       data-testid={`product-card-${product.slug}`}
     >
-      <div className="aspect-[3/4] overflow-hidden relative bg-muted">
+      <div className="aspect-[3/4] overflow-hidden relative bg-neutral-50 dark:bg-muted">
         {imageUrl ? (
           <img 
             src={imageUrl} 
             alt={product.name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain p-3"
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-pink-50 to-pink-100 flex items-center justify-center">
-            <Tag className="w-12 h-12 text-muted-foreground" />
-          </div>
-        )}
-        {discount && (
-          <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-md font-medium">
-            {discount}
+          <div className="w-full h-full bg-neutral-100 dark:bg-muted flex items-center justify-center">
+            <span className="text-neutral-400 text-sm">No image</span>
           </div>
         )}
       </div>
-      <div className="p-3">
-        <p className="text-xs text-muted-foreground mb-0.5">{brandName}</p>
-        <p className="text-sm font-medium line-clamp-2 leading-tight mb-2 min-h-[2.5em]">{product.name}</p>
+      <div className="py-3">
+        {brandName && (
+          <p className="text-[11px] text-neutral-500 dark:text-muted-foreground mb-0.5 uppercase tracking-wide">{brandName}</p>
+        )}
+        <p className="text-sm text-neutral-900 dark:text-foreground line-clamp-2 leading-snug mb-1.5 min-h-[2.5em]">{product.name}</p>
         
         {product.rating && (
-          <div className="flex items-center gap-1 mb-2">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-medium">{product.rating}</span>
+          <div className="flex items-center gap-1 mb-1.5">
+            <span className="text-xs font-medium text-neutral-700 dark:text-foreground">{product.rating}</span>
+            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
             {product.ratingCount && (
-              <span className="text-xs text-muted-foreground">({product.ratingCount})</span>
+              <span className="text-xs text-neutral-400 dark:text-muted-foreground">| {product.ratingCount}</span>
             )}
           </div>
         )}
         
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-bold text-primary">₹{effectivePrice.toLocaleString()}</span>
-          {markedPrice && markedPrice > effectivePrice && (
-            <span className="text-sm text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="font-semibold text-neutral-900 dark:text-foreground">₹{effectivePrice.toLocaleString()}</span>
+          {hasDiscount && (
+            <>
+              <span className="text-sm text-neutral-400 dark:text-muted-foreground line-through">₹{markedPrice.toLocaleString()}</span>
+              <span className="text-sm text-primary font-medium">({discountPercent}% Off)</span>
+            </>
           )}
         </div>
       </div>
@@ -113,8 +113,8 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
 export function ProductCardSkeleton({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <div className="w-36 flex-shrink-0">
-        <Skeleton className="aspect-square rounded-xl mb-2" />
+      <div className="w-40 flex-shrink-0">
+        <Skeleton className="aspect-square mb-3" />
         <Skeleton className="h-3 w-16 mb-1" />
         <Skeleton className="h-4 w-full mb-1" />
         <Skeleton className="h-4 w-20" />
@@ -123,9 +123,9 @@ export function ProductCardSkeleton({ compact = false }: { compact?: boolean }) 
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border">
+    <div className="overflow-hidden">
       <Skeleton className="aspect-[3/4]" />
-      <div className="p-3">
+      <div className="py-3">
         <Skeleton className="h-3 w-16 mb-1" />
         <Skeleton className="h-4 w-full mb-1" />
         <Skeleton className="h-4 w-3/4 mb-2" />
