@@ -81,7 +81,23 @@ export default function VerifyOTPPage() {
         session_cookie?: string;
         cookies?: string;
         f_session?: string;
-        user?: { name?: string; email?: string };
+        authentication?: {
+          cookies?: string;
+          session_token?: string;
+          user_info?: {
+            first_name?: string;
+            last_name?: string;
+            emails?: Array<{ email?: string }>;
+          };
+        };
+        response?: {
+          user?: {
+            first_name?: string;
+            last_name?: string;
+            emails?: Array<{ email?: string }>;
+          };
+        };
+        user?: { name?: string; email?: string; first_name?: string; last_name?: string };
         name?: string;
         email?: string;
       }>('tira_verify_otp', {
@@ -89,17 +105,31 @@ export default function VerifyOTPPage() {
         request_id: otpRequestId,
       });
 
-      const sessionCookie = result.session_cookie || result.cookies || result.f_session || '';
+      // Extract session from various possible response formats
+      const sessionCookie = 
+        result.authentication?.cookies || 
+        result.session_cookie || 
+        result.cookies || 
+        result.f_session || 
+        '';
+      
+      // Extract user info from various possible response formats
+      const userInfo = result.authentication?.user_info || result.response?.user || result.user;
+      const firstName = userInfo?.first_name || result.user?.name?.split(' ')[0] || result.name || '';
+      const lastName = userInfo?.last_name || '';
+      const email = userInfo?.emails?.[0]?.email || result.user?.email || result.email || '';
+      const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+
       setSession(sessionCookie);
       setUser({
         phone: phone || '',
-        name: result.user?.name || result.name || '',
-        email: result.user?.email || result.email || '',
+        name: fullName,
+        email: email,
       });
 
       toast({
         title: 'Welcome!',
-        description: 'You have been logged in successfully',
+        description: `You have been logged in successfully${fullName ? `, ${fullName}` : ''}`,
       });
 
       setLocation('/home');

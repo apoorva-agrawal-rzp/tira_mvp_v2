@@ -61,10 +61,13 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
   }
 
   return (
-    <button
+    <div
       onClick={handleClick}
-      className="bg-white dark:bg-card overflow-hidden text-left w-full group rounded-lg border border-border/50"
+      className="bg-white dark:bg-card overflow-hidden text-left w-full group rounded-lg border border-border/50 cursor-pointer hover-elevate"
       data-testid={`product-card-${product.slug}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
     >
       <div className="relative">
         <ProductImage
@@ -81,6 +84,7 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
         <button 
           className="absolute top-2 right-2 w-8 h-8 bg-white/80 dark:bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
+          aria-label="Add to wishlist"
         >
           <Heart className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -111,7 +115,7 @@ export function ProductCard({ product, compact = false }: ProductCardProps) {
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
