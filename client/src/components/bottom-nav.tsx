@@ -1,5 +1,6 @@
 import { useLocation } from 'wouter';
 import { Home, Heart, Package, User } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -15,10 +16,14 @@ interface BottomNavProps {
 
 export function BottomNav({ active }: BottomNavProps) {
   const [, setLocation] = useLocation();
+  const isMobile = useIsMobile();
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border flex justify-around py-2 z-50 safe-area-bottom"
+      className={cn(
+        "bg-background border-t border-border flex justify-around items-center h-16 z-50 safe-area-bottom",
+        isMobile ? "fixed bottom-0 left-0 right-0" : "sticky bottom-0 left-0 right-0"
+      )}
       data-testid="bottom-navigation"
     >
       {navItems.map((item) => {

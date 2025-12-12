@@ -52,7 +52,7 @@ export default function HomePage() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 border-b border-border shadow-sm">
         <div className="flex items-center gap-3">
           <TiraLogo size="md" />

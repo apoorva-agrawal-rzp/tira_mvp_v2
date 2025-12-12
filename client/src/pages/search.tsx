@@ -161,7 +161,7 @@ export default function SearchPage() {
   const sortedDisplayed = getSortedProducts(displayedProducts);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 border-b border-border shadow-sm">
         <form onSubmit={handleSearch} className="flex items-center gap-2">
           <Button

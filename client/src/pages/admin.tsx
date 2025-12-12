@@ -47,9 +47,9 @@ function AdminBidCard({
   return (
     <Card className="p-4 bg-gray-900 border-gray-800">
       <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <p className="font-medium mb-1 text-gray-100">{bid.product?.name}</p>
-          <p className="text-xs text-gray-500 mb-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium mb-1 text-gray-100 truncate">{bid.product?.name}</p>
+          <p className="text-xs text-gray-500 mb-2 truncate">
             Slug: {bid.product?.slug?.slice(0, 30)}...
           </p>
         </div>
@@ -522,7 +522,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-gray-950 text-gray-100 pb-4">
       <header className="sticky top-0 left-0 right-0 bg-gray-900 z-50 px-4 py-3 flex items-center gap-3 border-b border-gray-800 shadow-sm">
         <Button
           variant="ghost"
@@ -561,7 +561,7 @@ export default function AdminPage() {
         </Card>
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-gray-800">
+        <div className="flex gap-1 border-b border-gray-800 overflow-x-auto scrollbar-hide">
           <Button
             variant="ghost"
             onClick={() => {
@@ -569,12 +569,12 @@ export default function AdminPage() {
               fetchBids();
             }}
             className={cn(
-              'rounded-none border-b-2 border-transparent',
+              'rounded-none border-b-2 border-transparent flex-shrink-0 text-xs sm:text-sm',
               activeTab === 'bids' && 'border-primary text-primary'
             )}
           >
-            <Zap className="w-4 h-4 mr-2" />
-            Bids ({activeBids.length})
+            <Zap className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Bids </span>({activeBids.length})
           </Button>
           <Button
             variant="ghost"
@@ -583,12 +583,12 @@ export default function AdminPage() {
               fetchMonitors();
             }}
             className={cn(
-              'rounded-none border-b-2 border-transparent',
+              'rounded-none border-b-2 border-transparent flex-shrink-0 text-xs sm:text-sm',
               activeTab === 'monitors' && 'border-primary text-primary'
             )}
           >
-            <Activity className="w-4 h-4 mr-2" />
-            Monitors ({monitors.length})
+            <Activity className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Monitors </span>({monitors.length})
           </Button>
           <Button
             variant="ghost"
@@ -597,11 +597,11 @@ export default function AdminPage() {
               fetchMonitorStats();
             }}
             className={cn(
-              'rounded-none border-b-2 border-transparent',
+              'rounded-none border-b-2 border-transparent flex-shrink-0 text-xs sm:text-sm',
               activeTab === 'stats' && 'border-primary text-primary'
             )}
           >
-            <BarChart3 className="w-4 h-4 mr-2" />
+            <BarChart3 className="w-4 h-4 mr-1 sm:mr-2" />
             Stats
           </Button>
         </div>
@@ -681,7 +681,7 @@ export default function AdminPage() {
                   </Button>
                 </div>
                 {priceHistory.statistics && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-gray-800 rounded-lg p-3">
                       <div className="text-xs text-gray-400">Total Checks</div>
                       <div className="text-lg font-bold text-gray-100">{priceHistory.statistics.totalChecks}</div>
@@ -703,14 +703,14 @@ export default function AdminPage() {
                 <div className="max-h-64 overflow-auto">
                   <div className="space-y-1">
                     {priceHistory.history?.map((entry: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-gray-800">
-                        <div className="flex items-center gap-3">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          <span className="text-gray-400">
+                      <div key={idx} className="flex items-center justify-between text-xs sm:text-sm py-2 border-b border-gray-800 gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-shrink">
+                          <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          <span className="text-gray-400 truncate">
                             {new Date(entry.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="font-semibold text-gray-100">₹{entry.price}</span>
                           {entry.priceChange !== 0 && (
                             <span className={cn(
@@ -721,7 +721,7 @@ export default function AdminPage() {
                             </span>
                           )}
                           {entry.inStock && (
-                            <CheckCircle2 className="w-4 h-4 text-green-400" />
+                            <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                           )}
                         </div>
                       </div>
@@ -736,11 +736,11 @@ export default function AdminPage() {
                 {monitors.map((monitor: any) => (
                   <Card key={monitor.id} className="p-4 bg-gray-900 border-gray-800">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-100 mb-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-100 mb-1 truncate">
                           {monitor.productName || 'Unknown Product'}
                         </p>
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs text-gray-500 mb-2 truncate">
                           ID: {monitor.id?.slice(0, 20)}...
                         </p>
                       </div>
@@ -822,7 +822,7 @@ export default function AdminPage() {
                     <BarChart3 className="w-5 h-5" />
                     Overall Statistics
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="bg-gray-800 rounded-lg p-3">
                       <div className="text-xs text-gray-400 mb-1">Total Monitors</div>
                       <div className="text-2xl font-bold text-gray-100">
@@ -903,14 +903,14 @@ export default function AdminPage() {
                   <div 
                     key={i} 
                     className={cn(
-                      'flex gap-2',
+                      'flex gap-2 text-xs sm:text-sm',
                       log.type === 'success' && 'text-green-400',
                       log.type === 'error' && 'text-red-400',
                       log.type === 'info' && 'text-gray-300'
                     )}
                   >
                     <span className="text-gray-500 flex-shrink-0">{log.time}</span>
-                    <span>{log.message}</span>
+                    <span className="break-words min-w-0">{log.message}</span>
                   </div>
                 ))
               ) : (
