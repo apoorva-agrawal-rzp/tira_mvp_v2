@@ -85,8 +85,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="min-h-screen bg-background text-foreground">
-          <Router />
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+          <div className="w-full max-w-[375px] h-[844px] max-h-[844px] bg-background text-foreground rounded-[2.5rem] shadow-2xl overflow-hidden relative border-8 border-gray-900 dark:border-gray-800">
+            {/* Phone notch simulation */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 dark:bg-gray-800 rounded-b-2xl z-50"></div>
+            <div className="h-full overflow-y-auto scrollbar-hide">
+              <Router />
+            </div>
+          </div>
         </div>
         <Toaster />
       </TooltipProvider>

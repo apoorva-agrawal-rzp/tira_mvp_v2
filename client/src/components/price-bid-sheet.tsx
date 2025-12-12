@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { X, Info, Zap, QrCode } from 'lucide-react';
+import { X, Info, Zap, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -62,6 +62,8 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
   const [paymentPending, setPaymentPending] = useState(false);
   const [bidId, setBidId] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [toolResponse, setToolResponse] = useState<any>(null);
+  const [showToolResponse, setShowToolResponse] = useState(false);
   const { invoke } = useMCP();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -179,6 +181,8 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         notificationDestination: user.phone,
       });
 
+      // Store tool response for display
+      setToolResponse(result);
       console.log('[PriceBid] Result:', result);
 
       if (!result?.success) {
@@ -464,6 +468,30 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
               {loading ? 'Submitting...' : 'SUBMIT PRICE BID'}
             </Button>
           </>
+        )}
+
+        {toolResponse && (
+          <div className="mt-5 border-t border-border pt-5">
+            <Button
+              variant="ghost"
+              onClick={() => setShowToolResponse(!showToolResponse)}
+              className="w-full justify-between mb-3"
+            >
+              <span className="text-sm font-medium">Tool Response</span>
+              {showToolResponse ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </Button>
+            {showToolResponse && (
+              <div className="bg-muted rounded-lg p-4 overflow-auto max-h-96">
+                <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+                  {JSON.stringify(toolResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
