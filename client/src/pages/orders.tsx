@@ -91,54 +91,129 @@ export default function OrdersPage() {
 
   useEffect(() => {
     const fetchAllOrders = async () => {
-      if (!user?.phone) {
+      if (!user?.phone || !session) {
         setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
-        // Fetch all completed bids from server (including old ones)
-        const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
-          userId: user.phone,
-          includeCompleted: true,
+        // Use get_orders tool to fetch orders from Tira
+        const result = await invoke<{
+          success?: boolean;
+          orders?: Array<{
+            order_id?: string;
+            orderId?: string;
+            id?: string;
+            status?: string;
+            items?: Array<{
+              product?: {
+                name?: string;
+                brand?: string;
+                image?: string;
+                slug?: string;
+              };
+              price?: number;
+              quantity?: number;
+            }>;
+            total?: number;
+            paid_amount?: number;
+            created_at?: string;
+            placed_at?: string;
+            delivery_date?: string;
+            address?: any;
+          }>;
+          totalOrders?: number;
+          page?: number;
+        }>('get_orders', {
+          cookies: session,
+          page_no: 1,
+          page_size: 50,
         });
 
         const allOrders: Order[] = [];
 
-        // Add orders from completed bids
-        if (result.bids) {
-          const completedBids = result.bids.filter((b: Record<string, unknown>) => 
-            (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
-            (b.orderId || b.order_id)
-          );
+        // Convert Tira orders to our Order format
+        if (result.orders && result.orders.length > 0) {
+          const tiraOrders: Order[] = result.orders.map((o) => {
+            const orderId = o.order_id || o.orderId || o.id || '';
+            const firstItem = o.items?.[0];
+            const productName = firstItem?.product?.name || 'Product';
+            const productBrand = firstItem?.product?.brand;
+            const productImage = firstItem?.product?.image;
+            const productSlug = firstItem?.product?.slug || '';
+            const paidPrice = o.paid_amount || o.total || 0;
+            const placedAt = o.placed_at || o.created_at || new Date().toISOString();
+            const orderStatus = o.status || 'processing';
 
-          const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
-            const orderId = (b.orderId || b.order_id) as string;
-            const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
-            const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
-            
             return {
               id: orderId,
               product: {
-                name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
-                brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
-                image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
-                slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+                name: productName,
+                brand: productBrand,
+                image: productImage,
+                slug: productSlug,
               },
-              paidPrice: bidPrice,
-              originalPrice: currentPrice,
-              savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
-              status: 'processing' as const,
-              placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
-              type: 'price_bid' as const,
+              paidPrice: paidPrice,
+              originalPrice: paidPrice, // Tira doesn't provide original price separately
+              savings: 0, // Will be calculated if we have bid info
+              status: (orderStatus.toLowerCase() as Order['status']) || 'processing',
+              placedAt: placedAt,
+              type: 'direct' as const, // Default to direct, will update if found in bids
             };
           });
 
-          allOrders.push(...bidOrders);
+          allOrders.push(...tiraOrders);
         }
 
-        // Also check local completed bids that might not be on server yet
+        // Also fetch completed bids to merge with orders and calculate savings
+        try {
+          const bidResult = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+            userId: user.phone,
+            includeCompleted: true,
+          });
+
+          if (bidResult.bids) {
+            const completedBids = bidResult.bids.filter((b: Record<string, unknown>) => 
+              (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
+              (b.orderId || b.order_id)
+            );
+
+            const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
+              const orderId = (b.orderId || b.order_id) as string;
+              const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
+              const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
+              
+              return {
+                id: orderId,
+                product: {
+                  name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+                  brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+                  image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+                  slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+                },
+                paidPrice: bidPrice,
+                originalPrice: currentPrice,
+                savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
+                status: 'processing' as const,
+                placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
+                type: 'price_bid' as const,
+              };
+            });
+
+            // Merge bid orders with Tira orders (bid orders take priority if same ID)
+            const orderMap = new Map<string, Order>();
+            allOrders.forEach(o => orderMap.set(o.id, o));
+            bidOrders.forEach(o => orderMap.set(o.id, o)); // Bid orders override Tira orders
+            
+            allOrders.splice(0, allOrders.length, ...Array.from(orderMap.values()));
+          }
+        } catch (bidErr) {
+          console.warn('Failed to fetch bids for orders:', bidErr);
+          // Continue with just Tira orders
+        }
+
+        // Also check local completed bids
         const localCompletedBids = bids.filter((b) => b.status === 'completed' && b.orderId);
         const localOrderIds = new Set(allOrders.map((o) => o.id));
         
@@ -214,27 +289,83 @@ export default function OrdersPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
+            onClick={async () => {
+              if (!user?.phone || !session) return;
+              
               setLoading(true);
-              const fetchAllOrders = async () => {
-                if (!user?.phone) {
-                  setLoading(false);
-                  return;
+              try {
+                // Fetch orders using get_orders tool
+                const result = await invoke<{
+                  success?: boolean;
+                  orders?: Array<{
+                    order_id?: string;
+                    orderId?: string;
+                    id?: string;
+                    status?: string;
+                    items?: Array<{
+                      product?: {
+                        name?: string;
+                        brand?: string;
+                        image?: string;
+                        slug?: string;
+                      };
+                      price?: number;
+                      quantity?: number;
+                    }>;
+                    total?: number;
+                    paid_amount?: number;
+                    created_at?: string;
+                    placed_at?: string;
+                  }>;
+                }>('get_orders', {
+                  cookies: session,
+                  page_no: 1,
+                  page_size: 50,
+                });
+
+                const allOrders: Order[] = [];
+
+                if (result.orders && result.orders.length > 0) {
+                  const tiraOrders: Order[] = result.orders.map((o) => {
+                    const orderId = o.order_id || o.orderId || o.id || '';
+                    const firstItem = o.items?.[0];
+                    return {
+                      id: orderId,
+                      product: {
+                        name: firstItem?.product?.name || 'Product',
+                        brand: firstItem?.product?.brand,
+                        image: firstItem?.product?.image,
+                        slug: firstItem?.product?.slug || '',
+                      },
+                      paidPrice: o.paid_amount || o.total || 0,
+                      originalPrice: o.paid_amount || o.total || 0,
+                      savings: 0,
+                      status: (o.status?.toLowerCase() as Order['status']) || 'processing',
+                      placedAt: o.placed_at || o.created_at || new Date().toISOString(),
+                      type: 'direct' as const,
+                    };
+                  });
+                  allOrders.push(...tiraOrders);
                 }
+
+                // Also fetch completed bids
                 try {
-                  const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+                  const bidResult = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
                     userId: user.phone,
                     includeCompleted: true,
                   });
-                  if (result.bids) {
-                    const completedBids = result.bids.filter((b: Record<string, unknown>) => 
+
+                  if (bidResult.bids) {
+                    const completedBids = bidResult.bids.filter((b: Record<string, unknown>) => 
                       (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
                       (b.orderId || b.order_id)
                     );
+
                     const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
                       const orderId = (b.orderId || b.order_id) as string;
                       const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
                       const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
+                      
                       return {
                         id: orderId,
                         product: {
@@ -251,20 +382,28 @@ export default function OrdersPage() {
                         type: 'price_bid' as const,
                       };
                     });
-                    const uniqueOrders = Array.from(
-                      new Map(bidOrders.map((o) => [o.id, o])).values()
-                    ).sort(
-                      (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
-                    );
-                    setOrders(uniqueOrders);
+
+                    const orderMap = new Map<string, Order>();
+                    allOrders.forEach(o => orderMap.set(o.id, o));
+                    bidOrders.forEach(o => orderMap.set(o.id, o));
+                    allOrders.splice(0, allOrders.length, ...Array.from(orderMap.values()));
                   }
-                } catch (err) {
-                  console.error('Failed to refresh orders:', err);
-                } finally {
-                  setLoading(false);
+                } catch (bidErr) {
+                  console.warn('Failed to fetch bids:', bidErr);
                 }
-              };
-              fetchAllOrders();
+
+                const uniqueOrders = Array.from(
+                  new Map(allOrders.map((o) => [o.id, o])).values()
+                ).sort(
+                  (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+                );
+
+                setOrders(uniqueOrders);
+              } catch (err) {
+                console.error('Failed to refresh orders:', err);
+              } finally {
+                setLoading(false);
+              }
             }}
             disabled={loading}
             data-testid="refresh-orders"

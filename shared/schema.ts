@@ -53,10 +53,11 @@ export const priceBidSchema = z.object({
   }),
   bidPrice: z.number(),
   currentPrice: z.number(),
-  status: z.enum(['monitoring', 'active', 'completed', 'expired', 'cancelled']),
+  status: z.enum(['monitoring', 'active', 'completed', 'expired', 'cancelled', 'payment_pending']),
   createdAt: z.string(),
   completedAt: z.string().optional(),
   orderId: z.string().optional(),
+  paymentId: z.string().optional(),
 });
 
 export type PriceBid = z.infer<typeof priceBidSchema>;

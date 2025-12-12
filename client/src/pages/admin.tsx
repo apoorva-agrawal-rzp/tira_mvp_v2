@@ -102,7 +102,7 @@ function AdminBidCard({
         <div className="text-xs text-gray-500 mb-3">
           Monitor ID: {bid.monitorId.slice(0, 20)}...
         </div>
-      }
+      )}
       
       <div className="flex gap-2">
         <Input
@@ -240,7 +240,21 @@ export default function AdminPage() {
     addLog(`Fetching price history for monitor: ${monitorId.slice(0, 10)}...`);
     
     try {
-      const result = await invoke('tira_get_price_history', {
+      const result = await invoke<{
+        success?: boolean;
+        history?: Array<{
+          timestamp: string;
+          price: number;
+          priceChange: number;
+          inStock: boolean;
+        }>;
+        statistics?: {
+          totalChecks?: number;
+          lowestPrice?: number;
+          highestPrice?: number;
+          totalPriceChanges?: number;
+        };
+      }>('tira_get_price_history', {
         monitorId,
         limit: 50,
       });
@@ -476,10 +490,10 @@ export default function AdminPage() {
         fetchBids();
         // Also refresh from server
         const { setBids } = useAppStore.getState();
-        invoke('tira_list_price_bids', {
+        invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
           userId: phone,
           includeCompleted: true,
-        }).then((result: { bids?: Array<Record<string, unknown>> }) => {
+        }).then((result) => {
           if (result.bids) {
             const mappedBids: PriceBid[] = result.bids.map((b: Record<string, unknown>) => ({
               id: (b.id || b.bidId || String(Date.now())) as string,

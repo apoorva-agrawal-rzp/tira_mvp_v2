@@ -397,7 +397,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
                   if (bidId && paymentId) {
                     setLoading(true);
                     try {
-                      const result = await invoke('tira_activate_price_bidding', {
+                      const result = await invoke<{ success?: boolean }>('tira_activate_price_bidding', {
                         bidId,
                         paymentId,
                       });
