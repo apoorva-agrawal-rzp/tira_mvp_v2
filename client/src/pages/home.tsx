@@ -53,7 +53,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-3 border-b border-border">
+      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 border-b border-border shadow-sm">
         <div className="flex items-center gap-3">
           <TiraLogo size="md" />
           <button

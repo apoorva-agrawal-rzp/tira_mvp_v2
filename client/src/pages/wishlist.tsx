@@ -40,6 +40,12 @@ export default function WishlistPage() {
           const monitorId = (b.monitorId || b.monitor_id || b.priceMonitorId || 
             (b.monitor as { id?: string })?.id || b.bidId) as string | undefined;
           
+          // Determine status - check for completed/fulfilled status
+          let status = (b.status || 'monitoring') as PriceBid['status'];
+          if (b.orderId || b.status === 'completed' || b.status === 'fulfilled') {
+            status = 'completed';
+          }
+          
           return {
             id: (b.id || b.bidId || String(Date.now())) as string,
             bidId: b.bidId as string | undefined,
@@ -52,9 +58,9 @@ export default function WishlistPage() {
             },
             bidPrice: (b.bidPrice || b.targetPrice) as number,
             currentPrice: (b.currentPrice || b.purchasePrice) as number,
-            status: (b.status || 'monitoring') as PriceBid['status'],
+            status: status,
             createdAt: (b.createdAt || new Date().toISOString()) as string,
-            completedAt: b.completedAt as string | undefined,
+            completedAt: (b.completedAt || (status === 'completed' ? new Date().toISOString() : undefined)) as string | undefined,
             orderId: b.orderId as string | undefined,
           };
         });
@@ -109,7 +115,7 @@ export default function WishlistPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-4 border-b border-border">
+      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-4 border-b border-border shadow-sm">
         <div className="flex items-center gap-2">
           <Heart className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">My Wishlist</h1>

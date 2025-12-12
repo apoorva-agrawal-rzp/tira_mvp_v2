@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { BottomNav } from '@/components/bottom-nav';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { LoadingScreen } from '@/components/loading-screen';
 import { useAppStore } from '@/lib/store';
+import { useMCP } from '@/hooks/use-mcp';
 import type { Order } from '@shared/schema';
-import { Package, CheckCircle2, Truck, Tag, Search, Zap } from 'lucide-react';
+import { Package, CheckCircle2, Truck, Tag, Search, Zap, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function formatDate(dateStr: string) {
@@ -83,48 +85,199 @@ function OrderCard({ order }: { order: Order }) {
 
 export default function OrdersPage() {
   const [, setLocation] = useLocation();
-  const { orders, bids, setOrders } = useAppStore();
+  const { orders, bids, setOrders, user, session } = useAppStore();
+  const { invoke } = useMCP();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const completedBids = bids.filter((b) => b.status === 'completed');
-    
-    const bidOrders: Order[] = completedBids.map((b) => ({
-      id: b.orderId || `TIR${Date.now()}${Math.random().toString(36).substr(2, 5)}`.toUpperCase(),
-      product: {
-        name: b.product.name,
-        brand: b.product.brand,
-        image: b.product.image,
-        slug: b.product.slug,
-      },
-      paidPrice: b.bidPrice,
-      originalPrice: b.currentPrice,
-      savings: b.currentPrice - b.bidPrice,
-      status: 'processing',
-      placedAt: b.completedAt || b.createdAt,
-      type: 'price_bid',
-    }));
+    const fetchAllOrders = async () => {
+      if (!user?.phone) {
+        setLoading(false);
+        return;
+      }
 
-    const existingOrderIds = new Set(orders.map((o) => o.id));
-    const newOrders = bidOrders.filter((o) => !existingOrderIds.has(o.id));
-    
-    if (newOrders.length > 0) {
-      setOrders([...newOrders, ...orders].sort(
-        (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
-      ));
-    }
-  }, [bids]);
+      setLoading(true);
+      try {
+        // Fetch all completed bids from server (including old ones)
+        const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+          userId: user.phone,
+          includeCompleted: true,
+        });
+
+        const allOrders: Order[] = [];
+
+        // Add orders from completed bids
+        if (result.bids) {
+          const completedBids = result.bids.filter((b: Record<string, unknown>) => 
+            (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
+            (b.orderId || b.order_id)
+          );
+
+          const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
+            const orderId = (b.orderId || b.order_id) as string;
+            const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
+            const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
+            
+            return {
+              id: orderId,
+              product: {
+                name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+                brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+                image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+                slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+              },
+              paidPrice: bidPrice,
+              originalPrice: currentPrice,
+              savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
+              status: 'processing' as const,
+              placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
+              type: 'price_bid' as const,
+            };
+          });
+
+          allOrders.push(...bidOrders);
+        }
+
+        // Also check local completed bids that might not be on server yet
+        const localCompletedBids = bids.filter((b) => b.status === 'completed' && b.orderId);
+        const localOrderIds = new Set(allOrders.map((o) => o.id));
+        
+        localCompletedBids.forEach((b) => {
+          if (!localOrderIds.has(b.orderId!)) {
+            allOrders.push({
+              id: b.orderId!,
+              product: {
+                name: b.product.name,
+                brand: b.product.brand,
+                image: b.product.image,
+                slug: b.product.slug,
+              },
+              paidPrice: b.bidPrice,
+              originalPrice: b.currentPrice,
+              savings: b.currentPrice - b.bidPrice,
+              status: 'processing',
+              placedAt: b.completedAt || b.createdAt,
+              type: 'price_bid',
+            });
+          }
+        });
+
+        // Sort by date (newest first) and remove duplicates
+        const uniqueOrders = Array.from(
+          new Map(allOrders.map((o) => [o.id, o])).values()
+        ).sort(
+          (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+        );
+
+        setOrders(uniqueOrders);
+      } catch (err) {
+        console.error('Failed to fetch orders:', err);
+        // Fallback to local orders if server fetch fails
+        const localCompletedBids = bids.filter((b) => b.status === 'completed' && b.orderId);
+        const localOrders: Order[] = localCompletedBids.map((b) => ({
+          id: b.orderId!,
+          product: {
+            name: b.product.name,
+            brand: b.product.brand,
+            image: b.product.image,
+            slug: b.product.slug,
+          },
+          paidPrice: b.bidPrice,
+          originalPrice: b.currentPrice,
+          savings: b.currentPrice - b.bidPrice,
+          status: 'processing',
+          placedAt: b.completedAt || b.createdAt,
+          type: 'price_bid',
+        }));
+        setOrders(localOrders.sort(
+          (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+        ));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllOrders();
+  }, [user?.phone, session]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Package className="w-5 h-5 text-primary" />
-          <h1 className="text-xl font-bold">My Orders</h1>
+      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-4 border-b border-border shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-primary" />
+            <h1 className="text-xl font-bold">My Orders</h1>
+            {orders.length > 0 && (
+              <span className="text-sm text-muted-foreground">({orders.length})</span>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setLoading(true);
+              const fetchAllOrders = async () => {
+                if (!user?.phone) {
+                  setLoading(false);
+                  return;
+                }
+                try {
+                  const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+                    userId: user.phone,
+                    includeCompleted: true,
+                  });
+                  if (result.bids) {
+                    const completedBids = result.bids.filter((b: Record<string, unknown>) => 
+                      (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
+                      (b.orderId || b.order_id)
+                    );
+                    const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
+                      const orderId = (b.orderId || b.order_id) as string;
+                      const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
+                      const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
+                      return {
+                        id: orderId,
+                        product: {
+                          name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+                          brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+                          image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+                          slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+                        },
+                        paidPrice: bidPrice,
+                        originalPrice: currentPrice,
+                        savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
+                        status: 'processing' as const,
+                        placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
+                        type: 'price_bid' as const,
+                      };
+                    });
+                    const uniqueOrders = Array.from(
+                      new Map(bidOrders.map((o) => [o.id, o])).values()
+                    ).sort(
+                      (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+                    );
+                    setOrders(uniqueOrders);
+                  }
+                } catch (err) {
+                  console.error('Failed to refresh orders:', err);
+                } finally {
+                  setLoading(false);
+                }
+              };
+              fetchAllOrders();
+            }}
+            disabled={loading}
+            data-testid="refresh-orders"
+          >
+            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+          </Button>
         </div>
       </header>
 
       <div className="p-4">
-        {orders.length > 0 ? (
+        {loading ? (
+          <LoadingScreen />
+        ) : orders.length > 0 ? (
           <div className="space-y-4">
             {orders.map((order) => (
               <OrderCard key={order.id} order={order} />

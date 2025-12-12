@@ -122,6 +122,37 @@ export default function AdminPage() {
     }
   };
 
+  const changeProductPrice = async (slug: string, price: number): Promise<boolean> => {
+    try {
+      addLog(`Changing product price to ₹${price}...`);
+      
+      const response = await fetch(
+        `https://asia-south1.workflow.boltic.app/afba6d4c-24d4-4b7b-8f7e-9efebe561786/change-price/${slug}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': '__cf_bm=Cq_qhjb5Ot.pEJHN_0gYV7Zfk9tAQGZh6Wvi9OiBeEc-1765541231-1.0.1.1-Y74hJ8bQJ9tXoX7IQaWx5ITJZ_cHMhcN9aqOf6xG20KLlODxpo3oVsgRvVCww9fkSueUcscwy2pPXM706xkGYHWWavLzs31Wq.TVEo_4hq0',
+          },
+          body: JSON.stringify({ price }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        addLog(`Price change API error: ${response.status} - ${errorText}`, 'error');
+        return false;
+      }
+
+      const result = await response.json();
+      addLog(`✅ Price changed successfully to ₹${price}`, 'success');
+      return true;
+    } catch (err) {
+      addLog(`Price change failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      return false;
+    }
+  };
+
   const triggerPriceDrop = async (bid: PriceBid, newPrice: number) => {
     addLog(`Triggering price drop for: ${bid.product?.name}`);
     addLog(`Current: ₹${bid.currentPrice} → New: ₹${newPrice}`);
@@ -131,10 +162,27 @@ export default function AdminPage() {
       return;
     }
 
+    if (!bid.product?.slug) {
+      addLog('Product slug not found', 'error');
+      return;
+    }
+
     try {
+      // Step 1: Change the product price using the API
+      const priceChanged = await changeProductPrice(bid.product.slug, newPrice);
+      if (!priceChanged) {
+        addLog('Failed to change price. Aborting...', 'error');
+        return;
+      }
+
+      // Step 2: Wait a moment for price to propagate
+      addLog('Waiting for price to propagate...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Step 3: Start intensive price monitor to detect the change
       addLog('Starting intensive price monitor...');
       await invoke('tira_intensive_price_monitor', {
-        slug: bid.product?.slug,
+        slug: bid.product.slug,
         interval: 2,
         duration: 60,
       });
@@ -184,14 +232,71 @@ export default function AdminPage() {
         transactionRefNumber: orderResult.id,
       });
 
+      // Update bid status to completed and create order
+      const { updateBid, addOrder } = useAppStore.getState();
+      
+      updateBid(bid.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        orderId: orderResult.id,
+      });
+
+      // Create order from completed bid
+      addOrder({
+        id: orderResult.id,
+        product: {
+          name: bid.product?.name || 'Product',
+          brand: bid.product?.brand,
+          image: bid.product?.image,
+          slug: bid.product?.slug || '',
+        },
+        paidPrice: bid.bidPrice,
+        originalPrice: bid.currentPrice,
+        savings: bid.currentPrice - bid.bidPrice,
+        status: 'processing',
+        placedAt: new Date().toISOString(),
+        type: 'price_bid',
+      });
+
       addLog('─────────────────────');
       addLog('ORDER PLACED SUCCESSFULLY!', 'success');
       addLog(`Product: ${bid.product?.name}`);
       addLog(`Paid: ₹${bid.bidPrice}`);
       addLog(`Saved: ₹${bid.currentPrice - bid.bidPrice}`);
+      addLog(`Order ID: ${orderResult.id}`);
       addLog('─────────────────────');
 
-      setTimeout(fetchBids, 2000);
+      // Refresh bids list
+      setTimeout(() => {
+        fetchBids();
+        // Also refresh from server
+        const { setBids } = useAppStore.getState();
+        invoke('tira_list_price_bids', {
+          userId: phone,
+          includeCompleted: true,
+        }).then((result: { bids?: Array<Record<string, unknown>> }) => {
+          if (result.bids) {
+            const mappedBids: PriceBid[] = result.bids.map((b: Record<string, unknown>) => ({
+              id: (b.id || b.bidId || String(Date.now())) as string,
+              bidId: b.bidId as string | undefined,
+              monitorId: (b.monitorId || b.monitor_id) as string | undefined,
+              product: {
+                name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+                brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+                image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+                slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+              },
+              bidPrice: (b.bidPrice || b.targetPrice) as number,
+              currentPrice: (b.currentPrice || b.purchasePrice) as number,
+              status: (b.status || 'monitoring') as PriceBid['status'],
+              createdAt: (b.createdAt || new Date().toISOString()) as string,
+              completedAt: b.completedAt as string | undefined,
+              orderId: b.orderId as string | undefined,
+            }));
+            setBids(mappedBids);
+          }
+        }).catch(console.error);
+      }, 2000);
     } catch (err) {
       addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
@@ -199,7 +304,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="sticky top-0 bg-gray-900 z-40 px-4 py-3 flex items-center gap-3 border-b border-gray-800">
+      <header className="sticky top-0 left-0 right-0 bg-gray-900 z-50 px-4 py-3 flex items-center gap-3 border-b border-gray-800 shadow-sm">
         <Button
           variant="ghost"
           size="icon"

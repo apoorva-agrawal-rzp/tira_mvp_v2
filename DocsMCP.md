@@ -317,15 +317,42 @@ Check payment status.
 
 ## Price Monitoring & Bidding
 
+### ⭐ Simplified Price Bidding Flow (Recommended)
+
+**Recommended Approach:** Add to cart + Register price monitor
+
+**How It Works:**
+1. Add product to cart using `add_to_cart`
+2. Register price monitor with target price using `tira_register_price_monitor`
+3. System monitors price every 10 seconds
+4. When price drops to target → User gets notification
+5. User completes purchase from cart
+
+**Flow:**
+```
+1. add_to_cart(items, sessionCookie) → Add product to cart
+2. tira_register_price_monitor(slug, targetPrice, sessionCookie) → Start monitoring
+3. [System monitors and notifies when price drops]
+4. [User completes purchase from cart when notified]
+```
+
+**Benefits:**
+- ✅ Simple and reliable
+- ✅ No payment setup required upfront
+- ✅ Product ready in cart for quick checkout
+- ✅ Free price monitoring
+
+---
+
 ### `tira_price_bidding`
-**Buy + Track Price Drops** - Complete agentic shopping flow.
+**Complete Agentic Flow** - Buy + Track with automatic purchase.
 
 **How It Works:**
 1. User sets target bid price (lower than current)
 2. Pre-authorize target amount via UPI Reserve Pay
 3. System monitors price every 10 seconds
 4. When price drops to target → Order auto-created
-5. Payment auto-debited
+5. Payment auto-debited from pre-authorized amount
 
 **Parameters:**
 | Parameter | Type | Required | Default | Description |
@@ -339,10 +366,21 @@ Check payment status.
 | `sessionCookie` | string | ✅ | - | Session cookie |
 | `userId` | string | ✅ | - | User identifier |
 | `userPhone` | string | ✅ | - | 10-digit phone |
+| `customerId` | string | ❌ | - | Razorpay customer ID (starts with `cust_`) |
 | `notificationMethod` | string | ❌ | "whatsapp" | Notification method |
 | `notificationDestination` | string | ❌ | - | Phone for WhatsApp |
+| `addressConfirmed` | boolean | ❌ | false | Skip address confirmation |
 
-**Returns:** `bidId` and `paymentId` for activation
+**Returns:** 
+- `bidId` - Bid identifier
+- `paymentId` - Payment ID for activation
+- `order` - Razorpay order details
+- `payment` - Payment details with QR code/UPI link
+
+**⚠️ Important:** 
+- Requires user to have a delivery address saved
+- Payment must be completed to activate monitoring
+- Use `tira_activate_price_bidding` after payment confirmation
 
 ---
 
@@ -358,17 +396,29 @@ Activate monitoring after payment confirmation.
 ---
 
 ### `tira_register_price_monitor`
-**Free Price Tracking** - No purchase required.
+**Free Price Tracking** - Recommended for price bidding setup.
+
+**Use Cases:**
+- ✅ Price bidding (add to cart + monitor)
+- ✅ Free price alerts (no purchase required)
+- ✅ Track price drops for wishlist items
 
 **Parameters:**
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `productSlug` | string | ✅ | - | Product slug |
-| `userId` | string | ❌ | - | User identifier |
+| `userId` | string | ❌ | - | User identifier (auto-fetched from session) |
 | `sessionCookie` | string | ❌ | - | Session cookie |
-| `targetPrice` | number | ❌ | - | Alert threshold |
+| `targetPrice` | number | ❌ | - | Alert when price drops to or below this amount |
 | `notificationMethod` | string | ❌ | "whatsapp" | log/email/webhook/whatsapp |
-| `notificationDestination` | string | ❌ | - | Notification target |
+| `notificationDestination` | string | ❌ | - | Phone/email/webhook URL (auto-fetched if not provided) |
+
+**Returns:**
+- `monitor.id` - Monitor identifier
+- `monitor.currentPrice` - Current product price
+- `monitor.targetPrice` - Target price threshold
+- `monitor.checkFrequency` - Check interval (every 10 seconds)
+- `monitor.nextCheck` - Next check timestamp
 
 ---
 
@@ -493,13 +543,24 @@ For UPI SBMD mandate orders: `term_RMD93ugGbBOhTp`
 10. initiate_payment_with_masked_data(amount, order_id) → Process payment
 ```
 
-### Price Bidding Flow
+### Price Bidding Flow (Simplified - Recommended)
 
 ```
 1. get_products("serum") → Get product with slug
 2. tira_send_otp + tira_verify_otp → Authenticate
-3. tira_price_bidding(bidPrice, purchasePrice, ...) → Create bid
-4. [User completes UPI payment]
+3. add_to_cart(items, sessionCookie) → Add product to cart
+4. tira_register_price_monitor(slug, targetPrice, sessionCookie) → Start monitoring
+5. [System monitors and notifies when price drops to target]
+6. [User completes purchase from cart when notified]
+```
+
+### Price Bidding Flow (Complete Agentic)
+
+```
+1. get_products("serum") → Get product with slug
+2. tira_send_otp + tira_verify_otp → Authenticate
+3. tira_price_bidding(bidPrice, purchasePrice, ...) → Create bid + payment setup
+4. [User completes UPI Reserve Pay payment]
 5. tira_activate_price_bidding(bidId, paymentId) → Activate monitoring
 6. [System auto-orders when price hits target]
 ```

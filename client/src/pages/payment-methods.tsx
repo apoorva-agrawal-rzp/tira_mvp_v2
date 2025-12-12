@@ -69,6 +69,51 @@ export default function PaymentMethodsPage() {
     checkMandateStatus();
   }, []);
 
+  // Check for pending bid activation after payment
+  useEffect(() => {
+    const checkPendingBidActivation = async () => {
+      const pendingActivation = localStorage.getItem('pending_bid_activation');
+      if (!pendingActivation) return;
+
+      try {
+        const { bidId, paymentId, tempBidId } = JSON.parse(pendingActivation);
+        
+        // Check if mandate is confirmed (payment completed)
+        if (mandate && mandate.status === 'confirmed') {
+          // Activate the bid
+          try {
+            await invoke('tira_activate_price_bidding', {
+              bidId: bidId,
+              paymentId: paymentId,
+            });
+            
+            // Update bid status
+            const { updateBid } = useAppStore.getState();
+            updateBid(tempBidId, {
+              bidId: bidId,
+              status: 'monitoring',
+            });
+            
+            localStorage.removeItem('pending_bid_activation');
+            
+            toast({
+              title: 'Price Bid Activated!',
+              description: 'Your price monitoring is now active',
+            });
+          } catch (err) {
+            console.error('Failed to activate bid:', err);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking pending bid activation:', err);
+      }
+    };
+
+    if (mandate) {
+      checkPendingBidActivation();
+    }
+  }, [mandate, invoke, toast]);
+
   const checkMandateStatus = async () => {
     if (!user?.phone) {
       setLoading(false);
@@ -283,6 +328,51 @@ export default function PaymentMethodsPage() {
     }
   };
 
+  // Check for pending bid activation after payment
+  useEffect(() => {
+    const checkPendingBidActivation = async () => {
+      const pendingActivation = localStorage.getItem('pending_bid_activation');
+      if (!pendingActivation) return;
+
+      try {
+        const { bidId, paymentId, tempBidId } = JSON.parse(pendingActivation);
+        
+        // Check if mandate is confirmed (payment completed)
+        if (mandate && mandate.status === 'confirmed') {
+          // Activate the bid
+          try {
+            await invoke('tira_activate_price_bidding', {
+              bidId: bidId,
+              paymentId: paymentId,
+            });
+            
+            // Update bid status
+            const { updateBid } = useAppStore.getState();
+            updateBid(tempBidId, {
+              bidId: bidId,
+              status: 'monitoring',
+            });
+            
+            localStorage.removeItem('pending_bid_activation');
+            
+            toast({
+              title: 'Price Bid Activated!',
+              description: 'Your price monitoring is now active',
+            });
+          } catch (err) {
+            console.error('Failed to activate bid:', err);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking pending bid activation:', err);
+      }
+    };
+
+    if (mandate) {
+      checkPendingBidActivation();
+    }
+  }, [mandate, invoke, toast]);
+
   const pollMandateStatus = async (baselineTokenIds: Set<string>, baselineTokenStatuses: Map<string, string>) => {
     let attempts = 0;
     const maxAttempts = 60;
@@ -372,7 +462,7 @@ export default function PaymentMethodsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-8">
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-3 flex items-center gap-3 border-b border-border">
+      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 flex items-center gap-3 border-b border-border shadow-sm">
         <Button
           variant="ghost"
           size="icon"

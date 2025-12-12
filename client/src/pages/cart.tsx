@@ -62,7 +62,7 @@ export default function BagPage() {
 
   return (
     <div className="min-h-screen bg-background pb-8">
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-40 px-4 py-3 flex items-center gap-3 border-b border-border">
+      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 flex items-center gap-3 border-b border-border shadow-sm">
         <Button
           variant="ghost"
           size="icon"
