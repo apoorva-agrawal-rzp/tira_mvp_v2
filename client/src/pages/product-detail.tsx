@@ -406,7 +406,10 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex gap-3 z-40" style={!isMobile ? { maxWidth: '375px', left: '50%', transform: 'translateX(-50%)' } : undefined}>
+      <div className={cn(
+        "bg-background border-t border-border p-4 flex gap-3 z-40",
+        isMobile ? "fixed bottom-0 left-0 right-0" : "sticky bottom-0 left-0 right-0"
+      )}>
         <Button
           variant="outline"
           className="flex-1 py-6"
