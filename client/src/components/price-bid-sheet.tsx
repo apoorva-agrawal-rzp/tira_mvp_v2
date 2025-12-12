@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { X, Info, Zap, QrCode, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -349,12 +349,12 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 z-50 flex items-end animate-in fade-in duration-200"
+      className="absolute inset-0 bg-black/60 z-50 flex items-end animate-in fade-in duration-200"
       onClick={onClose}
       data-testid="price-bid-sheet"
     >
       <div 
-        className="bg-background w-full rounded-t-3xl p-6 max-h-[85vh] overflow-auto animate-in slide-in-from-bottom duration-300"
+        className="bg-background w-full rounded-t-3xl p-6 max-h-[90%] overflow-auto animate-in slide-in-from-bottom duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
