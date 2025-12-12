@@ -191,11 +191,23 @@ export default function PaymentMethodsPage() {
         short_url?: string;
         qr_code?: string;
         qr_code_url?: string;
+        available_actions?: Array<{
+          action?: string;
+          url?: string;
+          qr_url?: string;
+          original_upi_url?: string;
+        }>;
         payment_details?: {
-          next?: Array<{ url?: string }>;
+          next?: Array<{ 
+            action?: string;
+            url?: string; 
+            qr_url?: string;
+            original_upi_url?: string;
+          }>;
         };
         id?: string;
         payment_id?: string;
+        razorpay_payment_id?: string;
       }>('initiate_payment_with_masked_data', {
         amount: amount * 100,
         order_id: orderId,
@@ -207,12 +219,25 @@ export default function PaymentMethodsPage() {
         session_cookie: session,
       });
 
-      const intentLink = paymentResult.upi_link || paymentResult.short_url;
-      const qrImageUrl = paymentResult.qr_code || paymentResult.qr_code_url;
+      // Extract QR URL from new response format
+      const intentAction = paymentResult.available_actions?.find(a => a.action === 'intent') ||
+                          paymentResult.payment_details?.next?.find(a => a.action === 'intent');
+      
+      const intentLink = intentAction?.url || intentAction?.original_upi_url || 
+                        paymentResult.upi_link || paymentResult.short_url;
+      
+      const qrImageUrl = intentAction?.qr_url || 
+                        paymentResult.qr_code || 
+                        paymentResult.qr_code_url;
       
       const baselineTokenIds = new Set(allTokens.map(t => t.id));
       const baselineTokenStatuses = new Map(allTokens.map(t => [t.id, t.recurring_details?.status || t.status || '']));
       setPollingBaselineTokenIds(baselineTokenIds);
+
+      // Log for debugging
+      console.log('[Payment] QR URL:', qrImageUrl);
+      console.log('[Payment] Intent Link:', intentLink);
+      console.log('[Payment] Full response:', paymentResult);
 
       setQrData({
         intentLink,
@@ -380,6 +405,13 @@ export default function PaymentMethodsPage() {
                       alt="UPI QR Code" 
                       className="w-48 h-48 object-contain"
                       data-testid="img-qr-code"
+                      onError={(e) => {
+                        console.error('QR image failed to load:', qrData.qrImageUrl);
+                        // Fallback to intent link if QR image fails
+                        if (qrData.intentLink) {
+                          e.currentTarget.style.display = 'none';
+                        }
+                      }}
                     />
                   </div>
                 </div>
@@ -392,7 +424,16 @@ export default function PaymentMethodsPage() {
                     </p>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-xl border-2 border-dashed border-primary/30">
+                    <QrCode className="w-24 h-24 text-primary mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground font-medium">
+                      Setting up payment...
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {qrData.intentLink && (
                 <a

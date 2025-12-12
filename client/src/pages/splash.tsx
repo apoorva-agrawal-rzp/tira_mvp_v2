@@ -40,9 +40,14 @@ export default function SplashPage() {
         }
       }
       
-      // Always redirect to home - allow browsing without login
-      // Login will be required for cart/checkout operations
-      setLocation('/home');
+      // Check if user is logged in
+      if (session && useAppStore.getState().user) {
+        // User is authenticated, go to home
+        setLocation('/home');
+      } else {
+        // User not logged in, redirect to login
+        setLocation('/login');
+      }
     };
 
     init();

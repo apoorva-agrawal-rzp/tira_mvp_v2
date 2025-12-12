@@ -63,20 +63,16 @@ function AdminBidCard({
 }
 
 export default function AdminPage() {
-  const [demoPhone, setDemoPhone] = useState('');
   const [activeBids, setActiveBids] = useState<PriceBid[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
-  const { phone, bids } = useAppStore();
+  const { phone, bids, user } = useAppStore();
 
   useEffect(() => {
-    if (phone) {
-      setDemoPhone(phone);
-    }
     setActiveBids(bids.filter(b => b.status === 'monitoring' || b.status === 'active'));
-  }, [phone, bids]);
+  }, [bids]);
 
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
     const time = new Date().toLocaleTimeString('en-US', { 
@@ -89,17 +85,17 @@ export default function AdminPage() {
   };
 
   const fetchBids = async () => {
-    if (!demoPhone) {
-      addLog('Please enter a phone number', 'error');
+    if (!phone) {
+      addLog('User phone number not found. Please login again.', 'error');
       return;
     }
 
     setLoading(true);
-    addLog('Fetching active bids...');
+    addLog(`Fetching active bids for user: ${phone}...`);
     
     try {
       const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
-        userId: demoPhone,
+        userId: phone,
         includeCompleted: false,
       });
 
@@ -145,8 +141,13 @@ export default function AdminPage() {
 
       addLog('Price matched! Executing auto-purchase...');
 
+      if (!phone) {
+        addLog('User phone number not found', 'error');
+        return;
+      }
+
       const tokenResult = await invoke<{ items?: Array<{ id: string; status: string; customer_id: string }> }>('get_token_masked_data', {
-        contact: demoPhone,
+        contact: phone,
       });
       
       const token = tokenResult.items?.find((t) => t.status === 'confirmed');
@@ -171,7 +172,7 @@ export default function AdminPage() {
         order_id: orderResult.id,
         token: token.id,
         customer_id: token.customer_id,
-        contact: demoPhone,
+        contact: phone,
         recurring: true,
         force_terminal_id: 'term_RMD93ugGbBOhTp',
       });
@@ -186,7 +187,7 @@ export default function AdminPage() {
       addLog('─────────────────────');
       addLog('ORDER PLACED SUCCESSFULLY!', 'success');
       addLog(`Product: ${bid.product?.name}`);
-      addLog(`Paid: ₹${bid.bidPrice} (Demo: ₹1 actual)`);
+      addLog(`Paid: ₹${bid.bidPrice}`);
       addLog(`Saved: ₹${bid.currentPrice - bid.bidPrice}`);
       addLog('─────────────────────');
 
@@ -215,20 +216,18 @@ export default function AdminPage() {
 
       <div className="p-4 space-y-4">
         <Card className="p-4 bg-gray-900 border-gray-800">
-          <label className="text-sm text-gray-400 mb-2 block">Demo User Phone</label>
-          <div className="flex gap-2">
-            <Input
-              value={demoPhone}
-              onChange={(e) => setDemoPhone(e.target.value)}
-              placeholder="Enter phone number"
-              className="bg-gray-800 border-gray-700 text-gray-100"
-            />
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <label className="text-sm text-gray-400 block">Logged in as</label>
+              <p className="text-gray-100 font-medium">{user?.name || phone || 'Unknown'}</p>
+              <p className="text-xs text-gray-500">{phone || 'No phone number'}</p>
+            </div>
             <Button 
               onClick={fetchBids} 
-              disabled={loading}
+              disabled={loading || !phone}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Fetch'}
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Fetch Bids'}
             </Button>
           </div>
         </Card>
@@ -249,7 +248,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <Card className="p-4 bg-gray-900 border-gray-800 text-center text-gray-500">
-              No active bids. Enter phone number and click Fetch.
+              No active bids. Click "Fetch Bids" to load your bids.
             </Card>
           )}
         </div>
@@ -283,12 +282,11 @@ export default function AdminPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <h3 className="font-semibold mb-2 flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
-            Demo Instructions
+            Instructions
           </h3>
           <ol className="text-sm text-gray-400 space-y-2 list-decimal list-inside">
-            <li>User creates a price bid on any product</li>
-            <li>Enter the user's phone number above</li>
-            <li>Click "Fetch" to see active bids</li>
+            <li>Create a price bid on any product from the product page</li>
+            <li>Click "Fetch Bids" to see your active bids</li>
             <li>Enter a price ≤ bid price and click "TRIGGER"</li>
             <li>Watch the auto-purchase happen in logs!</li>
           </ol>

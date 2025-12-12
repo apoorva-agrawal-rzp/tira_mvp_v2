@@ -237,7 +237,7 @@ export default function AccountPage() {
           <MenuItem
             icon={Shield}
             label="Admin Panel"
-            description="Demo controls"
+            description="Manage price bids"
             onClick={() => setLocation('/admin')}
           />
         </Card>

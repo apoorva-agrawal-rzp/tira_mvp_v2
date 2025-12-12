@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ProtectedRoute } from "@/components/protected-route";
 
 import SplashPage from "@/pages/splash";
 import LoginPage from "@/pages/login";
@@ -25,16 +26,56 @@ function Router() {
       <Route path="/" component={SplashPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/verify-otp" component={VerifyOTPPage} />
-      <Route path="/home" component={HomePage} />
-      <Route path="/search" component={SearchPage} />
-      <Route path="/product/:slug" component={ProductDetailPage} />
-      <Route path="/wishlist" component={WishlistPage} />
-      <Route path="/orders" component={OrdersPage} />
-      <Route path="/account" component={AccountPage} />
-      <Route path="/account/payment-methods" component={PaymentMethodsPage} />
-      <Route path="/account/addresses" component={AddressesPage} />
-      <Route path="/account/bag" component={BagPage} />
-      <Route path="/admin" component={AdminPage} />
+      <Route path="/home">
+        <ProtectedRoute>
+          <HomePage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/search">
+        <ProtectedRoute>
+          <SearchPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/product/:slug">
+        <ProtectedRoute>
+          <ProductDetailPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/wishlist">
+        <ProtectedRoute>
+          <WishlistPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/orders">
+        <ProtectedRoute>
+          <OrdersPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/account">
+        <ProtectedRoute>
+          <AccountPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/account/payment-methods">
+        <ProtectedRoute>
+          <PaymentMethodsPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/account/addresses">
+        <ProtectedRoute>
+          <AddressesPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/account/bag">
+        <ProtectedRoute>
+          <BagPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute>
+          <AdminPage />
+        </ProtectedRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

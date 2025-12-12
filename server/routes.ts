@@ -113,7 +113,7 @@ export async function registerRoutes(
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', mcp: 'https://shopping-mcp-production.up.railway.app/mcp' });
+    res.json({ status: 'ok', mcp: 'https://shopping-mcp-7u0k.onrender.com/mcp' });
   });
 
   // List available MCP tools
