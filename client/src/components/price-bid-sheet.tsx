@@ -136,10 +136,19 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         }
       }
 
-      // Call tira_price_bidding with complete agentic flow
-      const result = await invoke<{
+      // First attempt - may ask for address confirmation
+      let result = await invoke<{
         success?: boolean;
         status?: string;
+        address?: {
+          name?: string;
+          address?: string;
+          area?: string;
+          city?: string;
+          state?: string;
+          pincode?: string;
+          phone?: string;
+        };
         bid?: {
           id?: string;
           productName?: string;
@@ -176,10 +185,65 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         userEmail: user.email || '',
         sessionCookie: session,
         customerId: custId,
-        addressConfirmed: true,
         notificationMethod: 'whatsapp',
         notificationDestination: user.phone,
       });
+
+      // Handle address confirmation automatically
+      if (result?.status === 'address_confirmation_required') {
+        // Show address to user briefly
+        if (result.address) {
+          toast({
+            title: 'Using delivery address',
+            description: `${result.address.name}, ${result.address.city}`,
+          });
+        }
+
+        // Retry with addressConfirmed: true
+        result = await invoke<{
+          success?: boolean;
+          status?: string;
+          bid?: {
+            id?: string;
+            productName?: string;
+            baseProductPrice?: number;
+            baseBidPrice?: number;
+            bidAmountWithCharges?: number;
+            potentialSavings?: number;
+          };
+          payment?: {
+            id?: string;
+            status?: string;
+            qrCodeUrl?: string;
+            qr_code_url?: string;
+            upi_intent_link?: string;
+            available_actions?: Array<{
+              action?: string;
+              url?: string;
+              qr_url?: string;
+            }>;
+          };
+          order?: {
+            id?: string;
+          };
+          message?: string;
+        }>('tira_price_bidding', {
+          productSlug: product.slug,
+          productName: product.name,
+          productItemId: product.itemId,
+          productArticleId: product.articleId,
+          purchasePrice: currentPrice,
+          bidPrice: finalBidPrice,
+          userId: user.phone,
+          userPhone: user.phone,
+          userEmail: user.email || '',
+          sessionCookie: session,
+          customerId: custId,
+          addressConfirmed: true,
+          notificationMethod: 'whatsapp',
+          notificationDestination: user.phone,
+        });
+      }
 
       // Store tool response for display
       setToolResponse(result);

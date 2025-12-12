@@ -114,7 +114,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-4 border-b border-border shadow-sm">
         <div className="flex items-center gap-2">
           <Heart className="w-5 h-5 text-primary" />
@@ -125,7 +125,7 @@ export default function WishlistPage() {
         </p>
       </header>
 
-      <div className="p-4">
+      <div className="p-4 flex-1 pb-20">
         {activeBids.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center justify-between mb-3">

@@ -276,7 +276,7 @@ export default function OrdersPage() {
   }, [user?.phone, session]);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-4 border-b border-border shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -413,7 +413,7 @@ export default function OrdersPage() {
         </div>
       </header>
 
-      <div className="p-4">
+      <div className="p-4 flex-1 pb-20">
         {loading ? (
           <LoadingScreen />
         ) : orders.length > 0 ? (
