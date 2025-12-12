@@ -82,10 +82,10 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
   const handleSubmitBid = async () => {
     const finalBidPrice = Number(bidPrice);
 
-    if (!finalBidPrice || finalBidPrice >= currentPrice) {
+    if (!finalBidPrice || finalBidPrice > currentPrice) {
       toast({
         title: 'Invalid bid',
-        description: 'Bid must be lower than current price',
+        description: 'Bid must be equal to or lower than current price',
         variant: 'destructive',
       });
       return;
@@ -457,7 +457,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
 
             <Button
               onClick={handleSubmitBid}
-              disabled={loading || !selectedBidPrice || selectedBidPrice >= currentPrice}
+              disabled={loading || !selectedBidPrice || selectedBidPrice > currentPrice}
               className="w-full py-6 text-base font-semibold"
               data-testid="submit-bid-button"
             >
