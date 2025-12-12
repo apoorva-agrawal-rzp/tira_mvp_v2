@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProtectedRoute } from "@/components/protected-route";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import SplashPage from "@/pages/splash";
 import LoginPage from "@/pages/login";
@@ -82,18 +83,28 @@ function Router() {
 }
 
 function App() {
+  const isMobile = useIsMobile();
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
-          <div className="w-full max-w-[375px] h-[760px] max-h-[760px] bg-background text-foreground rounded-[2.5rem] shadow-2xl overflow-hidden relative border-8 border-gray-900 dark:border-gray-800">
-            {/* Phone notch simulation */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 dark:bg-gray-800 rounded-b-2xl z-50"></div>
-            <div className="h-full overflow-y-auto scrollbar-hide">
-              <Router />
+        {isMobile ? (
+          // Mobile device - no phone frame
+          <div className="min-h-screen bg-background text-foreground">
+            <Router />
+          </div>
+        ) : (
+          // Desktop - show phone frame
+          <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+            <div className="w-full max-w-[375px] h-[760px] max-h-[760px] bg-background text-foreground rounded-[2.5rem] shadow-2xl overflow-hidden relative border-8 border-gray-900 dark:border-gray-800">
+              {/* Phone notch simulation */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 dark:bg-gray-800 rounded-b-2xl z-50"></div>
+              <div className="h-full overflow-y-auto scrollbar-hide">
+                <Router />
+              </div>
             </div>
           </div>
-        </div>
+        )}
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

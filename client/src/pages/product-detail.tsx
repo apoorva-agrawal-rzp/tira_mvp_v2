@@ -10,6 +10,7 @@ import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { parseProductDetailMarkdown } from '@/lib/mcp-parser';
 import { getCachedProduct, cacheProduct } from '@/lib/product-cache';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Product } from '@shared/schema';
 import { 
   ArrowLeft, 
@@ -48,6 +49,7 @@ export default function ProductDetailPage() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [showPriceBidSheet, setShowPriceBidSheet] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const isMobile = useIsMobile();
   const { invoke } = useMCP();
   const { session, user, addToCart, isHydrated } = useAppStore();
   const { toast } = useToast();
@@ -273,7 +275,7 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="min-h-screen bg-background pb-28 relative">
       <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 flex items-center justify-between border-b border-border shadow-sm">
         <Button
           variant="ghost"
@@ -404,7 +406,7 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex gap-3 z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex gap-3 z-40" style={!isMobile ? { maxWidth: '375px', left: '50%', transform: 'translateX(-50%)' } : undefined}>
         <Button
           variant="outline"
           className="flex-1 py-6"
