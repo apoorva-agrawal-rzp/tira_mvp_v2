@@ -12,7 +12,14 @@ import {
   Zap,
   Terminal,
   CheckCircle2,
-  XCircle
+  XCircle,
+  BarChart3,
+  History,
+  Eye,
+  TrendingDown,
+  Activity,
+  Clock,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,24 +31,78 @@ interface LogEntry {
 
 function AdminBidCard({ 
   bid, 
-  onTrigger 
+  onTrigger,
+  onViewHistory,
+  onDelete
 }: { 
   bid: PriceBid; 
   onTrigger: (bid: PriceBid, newPrice: number) => void;
+  onViewHistory?: (bid: PriceBid) => void;
+  onDelete?: (bid: PriceBid) => void;
 }) {
   const [newPrice, setNewPrice] = useState(bid.bidPrice.toString());
+  const savings = bid.currentPrice - bid.bidPrice;
+  const savingsPercent = ((savings / bid.currentPrice) * 100).toFixed(1);
 
   return (
-    <Card className="p-4 bg-card">
-      <p className="font-medium mb-1">{bid.product?.name}</p>
-      <p className="text-sm text-muted-foreground mb-2">
-        User: {bid.id.slice(0, 10)}...
-      </p>
-      
-      <div className="flex gap-4 text-sm mb-3 flex-wrap">
-        <span>Current: ₹{bid.currentPrice}</span>
-        <span className="text-green-500">Bid: ₹{bid.bidPrice}</span>
+    <Card className="p-4 bg-gray-900 border-gray-800">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <p className="font-medium mb-1 text-gray-100">{bid.product?.name}</p>
+          <p className="text-xs text-gray-500 mb-2">
+            Slug: {bid.product?.slug?.slice(0, 30)}...
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {bid.monitorId && onViewHistory && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onViewHistory(bid)}
+              className="text-gray-400 hover:text-gray-100"
+              title="View History"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(bid)}
+              className="text-red-400 hover:text-red-300 hover:bg-red-950/20"
+              title="Delete Bid"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+        <div>
+          <span className="text-gray-400">Current:</span>
+          <span className="ml-2 font-semibold text-gray-100">₹{bid.currentPrice}</span>
+        </div>
+        <div>
+          <span className="text-gray-400">Bid:</span>
+          <span className="ml-2 font-semibold text-green-400">₹{bid.bidPrice}</span>
+        </div>
+        <div>
+          <span className="text-gray-400">Savings:</span>
+          <span className="ml-2 font-semibold text-blue-400">₹{savings}</span>
+        </div>
+        <div>
+          <span className="text-gray-400">Discount:</span>
+          <span className="ml-2 font-semibold text-purple-400">{savingsPercent}%</span>
+        </div>
+      </div>
+
+      {bid.monitorId && (
+        <div className="text-xs text-gray-500 mb-3">
+          Monitor ID: {bid.monitorId.slice(0, 20)}...
+        </div>
+      }
       
       <div className="flex gap-2">
         <Input
@@ -49,11 +110,12 @@ function AdminBidCard({
           value={newPrice}
           onChange={(e) => setNewPrice(e.target.value)}
           placeholder="New price"
-          className="flex-1"
+          className="flex-1 bg-gray-800 border-gray-700 text-gray-100"
         />
         <Button
           variant="destructive"
           onClick={() => onTrigger(bid, Number(newPrice))}
+          className="bg-red-600 hover:bg-red-700"
         >
           TRIGGER
         </Button>
@@ -62,10 +124,17 @@ function AdminBidCard({
   );
 }
 
+type TabType = 'bids' | 'monitors' | 'stats';
+
 export default function AdminPage() {
   const [activeBids, setActiveBids] = useState<PriceBid[]>([]);
+  const [monitors, setMonitors] = useState<any[]>([]);
+  const [monitorStats, setMonitorStats] = useState<any>(null);
+  const [priceHistory, setPriceHistory] = useState<any>(null);
+  const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('bids');
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { phone, bids, user } = useAppStore();
@@ -96,11 +165,13 @@ export default function AdminPage() {
     try {
       const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
         userId: phone,
-        includeCompleted: false,
+        includeCompleted: true,
       });
 
       const mappedBids: PriceBid[] = (result.bids || []).map((b: Record<string, unknown>) => ({
         id: (b.id || b.bidId || String(Date.now())) as string,
+        bidId: b.bidId as string | undefined,
+        monitorId: (b.monitorId || b.monitor_id) as string | undefined,
         product: {
           name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
           brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
@@ -109,16 +180,150 @@ export default function AdminPage() {
         },
         bidPrice: (b.bidPrice || b.targetPrice) as number,
         currentPrice: (b.currentPrice || b.purchasePrice) as number,
-        status: 'monitoring',
+        status: (b.status || 'monitoring') as PriceBid['status'],
         createdAt: (b.createdAt || new Date().toISOString()) as string,
+        completedAt: b.completedAt as string | undefined,
+        orderId: b.orderId as string | undefined,
       }));
 
-      setActiveBids(mappedBids);
-      addLog(`Found ${mappedBids.length} active bids`, 'success');
+      setActiveBids(mappedBids.filter(b => b.status === 'monitoring' || b.status === 'active'));
+      addLog(`Found ${mappedBids.length} total bids (${mappedBids.filter(b => b.status === 'monitoring' || b.status === 'active').length} active)`, 'success');
     } catch (err) {
       addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMonitors = async () => {
+    if (!phone) {
+      addLog('User phone number not found. Please login again.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    addLog(`Fetching price monitors for user: ${phone}...`);
+    
+    try {
+      const result = await invoke<{ monitors?: Array<Record<string, unknown>> }>('tira_list_price_monitors', {
+        userId: phone,
+        includeInactive: true,
+      });
+
+      setMonitors(result.monitors || []);
+      addLog(`Found ${result.monitors?.length || 0} monitors`, 'success');
+    } catch (err) {
+      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMonitorStats = async () => {
+    setLoading(true);
+    addLog('Fetching monitor statistics...');
+    
+    try {
+      const result = await invoke('tira_get_monitor_stats');
+      setMonitorStats(result);
+      addLog('Monitor stats fetched successfully', 'success');
+    } catch (err) {
+      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPriceHistory = async (monitorId: string) => {
+    setLoading(true);
+    setSelectedMonitorId(monitorId);
+    addLog(`Fetching price history for monitor: ${monitorId.slice(0, 10)}...`);
+    
+    try {
+      const result = await invoke('tira_get_price_history', {
+        monitorId,
+        limit: 50,
+      });
+      setPriceHistory(result);
+      addLog(`Price history fetched: ${result?.history?.length || 0} entries`, 'success');
+    } catch (err) {
+      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      setPriceHistory(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewHistory = (bid: PriceBid) => {
+    if (bid.monitorId) {
+      fetchPriceHistory(bid.monitorId);
+      setActiveTab('monitors');
+    } else {
+      addLog('No monitor ID found for this bid', 'error');
+    }
+  };
+
+  const handleDeleteBid = async (bid: PriceBid) => {
+    if (!bid.monitorId) {
+      addLog('No monitor ID found. Cannot delete bid.', 'error');
+      return;
+    }
+
+    addLog(`Deleting bid: ${bid.product?.name}...`);
+    
+    try {
+      await invoke('tira_delete_price_monitor', {
+        monitorId: bid.monitorId,
+      });
+
+      // Remove from local state
+      const { removeBid } = useAppStore.getState();
+      removeBid(bid.id);
+
+      // Update active bids list
+      setActiveBids(prev => prev.filter(b => b.id !== bid.id));
+
+      addLog(`✅ Bid deleted successfully: ${bid.product?.name}`, 'success');
+      
+      // Refresh bids list
+      setTimeout(() => {
+        fetchBids();
+      }, 1000);
+    } catch (err) {
+      addLog(`Failed to delete bid: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleDeleteMonitor = async (monitor: any) => {
+    if (!monitor.id) {
+      addLog('No monitor ID found. Cannot delete.', 'error');
+      return;
+    }
+
+    addLog(`Deleting monitor: ${monitor.productName || monitor.id}...`);
+    
+    try {
+      await invoke('tira_delete_price_monitor', {
+        monitorId: monitor.id,
+      });
+
+      // Remove from monitors list
+      setMonitors(prev => prev.filter(m => m.id !== monitor.id));
+
+      // Clear price history if this monitor was selected
+      if (selectedMonitorId === monitor.id) {
+        setPriceHistory(null);
+        setSelectedMonitorId(null);
+      }
+
+      addLog(`✅ Monitor deleted successfully`, 'success');
+      
+      // Refresh monitors list
+      setTimeout(() => {
+        fetchMonitors();
+      }, 1000);
+    } catch (err) {
+      addLog(`Failed to delete monitor: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -327,36 +532,353 @@ export default function AdminPage() {
               <p className="text-gray-100 font-medium">{user?.name || phone || 'Unknown'}</p>
               <p className="text-xs text-gray-500">{phone || 'No phone number'}</p>
             </div>
-            <Button 
-              onClick={fetchBids} 
-              disabled={loading || !phone}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Fetch Bids'}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={fetchBids} 
+                disabled={loading || !phone}
+                variant="outline"
+                size="sm"
+                className="text-gray-300 border-gray-700"
+              >
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
         </Card>
 
-        <div>
-          <h2 className="font-semibold text-gray-400 mb-2">
-            Active Bids ({activeBids.length})
-          </h2>
-          {activeBids.length > 0 ? (
-            <div className="space-y-3">
-              {activeBids.map((bid) => (
-                <AdminBidCard 
-                  key={bid.id} 
-                  bid={bid} 
-                  onTrigger={triggerPriceDrop}
-                />
-              ))}
-            </div>
-          ) : (
-            <Card className="p-4 bg-gray-900 border-gray-800 text-center text-gray-500">
-              No active bids. Click "Fetch Bids" to load your bids.
-            </Card>
-          )}
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-gray-800">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setActiveTab('bids');
+              fetchBids();
+            }}
+            className={cn(
+              'rounded-none border-b-2 border-transparent',
+              activeTab === 'bids' && 'border-primary text-primary'
+            )}
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Bids ({activeBids.length})
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setActiveTab('monitors');
+              fetchMonitors();
+            }}
+            className={cn(
+              'rounded-none border-b-2 border-transparent',
+              activeTab === 'monitors' && 'border-primary text-primary'
+            )}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Monitors ({monitors.length})
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setActiveTab('stats');
+              fetchMonitorStats();
+            }}
+            className={cn(
+              'rounded-none border-b-2 border-transparent',
+              activeTab === 'stats' && 'border-primary text-primary'
+            )}
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Stats
+          </Button>
         </div>
+
+        {/* Bids Tab */}
+        {activeTab === 'bids' && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-400">
+                Active Bids ({activeBids.length})
+              </h2>
+              <Button 
+                onClick={fetchBids} 
+                disabled={loading || !phone}
+                variant="outline"
+                size="sm"
+                className="text-gray-300 border-gray-700"
+              >
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Refresh'}
+              </Button>
+            </div>
+            {activeBids.length > 0 ? (
+              <div className="space-y-3">
+                {activeBids.map((bid) => (
+                  <AdminBidCard 
+                    key={bid.id} 
+                    bid={bid} 
+                    onTrigger={triggerPriceDrop}
+                    onViewHistory={handleViewHistory}
+                    onDelete={handleDeleteBid}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-4 bg-gray-900 border-gray-800 text-center text-gray-500">
+                No active bids. Click "Refresh" to load your bids.
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Monitors Tab */}
+        {activeTab === 'monitors' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-400">
+                Price Monitors ({monitors.length})
+              </h2>
+              <Button 
+                onClick={fetchMonitors} 
+                disabled={loading || !phone}
+                variant="outline"
+                size="sm"
+                className="text-gray-300 border-gray-700"
+              >
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Refresh'}
+              </Button>
+            </div>
+
+            {priceHistory && selectedMonitorId && (
+              <Card className="p-4 bg-gray-900 border-gray-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-300 flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Price History
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPriceHistory(null);
+                      setSelectedMonitorId(null);
+                    }}
+                    className="text-gray-400"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </Button>
+                </div>
+                {priceHistory.statistics && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400">Total Checks</div>
+                      <div className="text-lg font-bold text-gray-100">{priceHistory.statistics.totalChecks}</div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400">Lowest Price</div>
+                      <div className="text-lg font-bold text-green-400">₹{priceHistory.statistics.lowestPrice}</div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400">Highest Price</div>
+                      <div className="text-lg font-bold text-red-400">₹{priceHistory.statistics.highestPrice}</div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400">Price Changes</div>
+                      <div className="text-lg font-bold text-blue-400">{priceHistory.statistics.totalPriceChanges}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="max-h-64 overflow-auto">
+                  <div className="space-y-1">
+                    {priceHistory.history?.map((entry: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-gray-800">
+                        <div className="flex items-center gap-3">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          <span className="text-gray-400">
+                            {new Date(entry.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="font-semibold text-gray-100">₹{entry.price}</span>
+                          {entry.priceChange !== 0 && (
+                            <span className={cn(
+                              'text-xs',
+                              entry.priceChange > 0 ? 'text-red-400' : 'text-green-400'
+                            )}>
+                              {entry.priceChange > 0 ? '+' : ''}{entry.priceChange}
+                            </span>
+                          )}
+                          {entry.inStock && (
+                            <CheckCircle2 className="w-4 h-4 text-green-400" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {monitors.length > 0 ? (
+              <div className="space-y-3">
+                {monitors.map((monitor: any) => (
+                  <Card key={monitor.id} className="p-4 bg-gray-900 border-gray-800">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-100 mb-1">
+                          {monitor.productName || 'Unknown Product'}
+                        </p>
+                        <p className="text-xs text-gray-500 mb-2">
+                          ID: {monitor.id?.slice(0, 20)}...
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchPriceHistory(monitor.id)}
+                          className="text-gray-300 border-gray-700"
+                          title="View History"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteMonitor(monitor)}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                          title="Delete Monitor"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-400">Current:</span>
+                        <span className="ml-2 font-semibold text-gray-100">₹{monitor.currentPrice || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Target:</span>
+                        <span className="ml-2 font-semibold text-green-400">₹{monitor.targetPrice || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Status:</span>
+                        <span className={cn(
+                          'ml-2 font-semibold',
+                          monitor.isActive ? 'text-green-400' : 'text-gray-500'
+                        )}>
+                          {monitor.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Frequency:</span>
+                        <span className="ml-2 text-gray-300">{monitor.checkFrequency || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="p-4 bg-gray-900 border-gray-800 text-center text-gray-500">
+                No monitors found. Click "Refresh" to load monitors.
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Stats Tab */}
+        {activeTab === 'stats' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-400">Monitor Statistics</h2>
+              <Button 
+                onClick={fetchMonitorStats} 
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="text-gray-300 border-gray-700"
+              >
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Refresh'}
+              </Button>
+            </div>
+
+            {monitorStats ? (
+              <div className="space-y-4">
+                <Card className="p-4 bg-gray-900 border-gray-800">
+                  <h3 className="font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Overall Statistics
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Total Monitors</div>
+                      <div className="text-2xl font-bold text-gray-100">
+                        {monitorStats.monitorStats?.totalMonitors || 0}
+                      </div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Active</div>
+                      <div className="text-2xl font-bold text-green-400">
+                        {monitorStats.monitorStats?.activeMonitors || 0}
+                      </div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Inactive</div>
+                      <div className="text-2xl font-bold text-gray-500">
+                        {monitorStats.monitorStats?.inactiveMonitors || 0}
+                      </div>
+                    </div>
+                    <div className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Last Check</div>
+                      <div className="text-sm font-semibold text-gray-300">
+                        {monitorStats.monitorStats?.lastCheckTime 
+                          ? new Date(monitorStats.monitorStats.lastCheckTime).toLocaleTimeString()
+                          : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-gray-900 border-gray-800">
+                  <h3 className="font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Service Status
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Service Running:</span>
+                      <span className={cn(
+                        'font-semibold',
+                        monitorStats.serviceStatus?.isRunning ? 'text-green-400' : 'text-red-400'
+                      )}>
+                        {monitorStats.serviceStatus?.isRunning ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Active Interval Jobs:</span>
+                      <span className="text-gray-300">
+                        {monitorStats.serviceStatus?.activeIntervalJobs?.join(', ') || 'None'}
+                      </span>
+                    </div>
+                    {monitorStats.serviceStatus?.scheduledFrequencies && (
+                      <div className="mt-3">
+                        <div className="text-xs text-gray-400 mb-2">Scheduled Frequencies:</div>
+                        {monitorStats.serviceStatus.scheduledFrequencies.map((freq: any, idx: number) => (
+                          <div key={idx} className="bg-gray-800 rounded p-2 text-sm text-gray-300">
+                            {freq.frequency} - {freq.interval}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              <Card className="p-4 bg-gray-900 border-gray-800 text-center text-gray-500">
+                Click "Refresh" to load statistics.
+              </Card>
+            )}
+          </div>
+        )}
 
         <div>
           <h2 className="font-semibold text-gray-400 mb-2">Logs</h2>
