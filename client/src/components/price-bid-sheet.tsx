@@ -337,11 +337,30 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       }
     } catch (err) {
       console.error('Price bid error:', err);
-      toast({
-        title: 'Failed to submit bid',
-        description: 'Please try again later',
-        variant: 'destructive',
+      
+      // Save bid locally even if API fails - user can still monitor
+      addBid({
+        id: `local-${Date.now()}`,
+        bidId: `local-${Date.now()}`,
+        product: {
+          name: product.name,
+          brand: product.brand,
+          image: product.image,
+          slug: product.slug,
+        },
+        bidPrice: finalBidPrice,
+        currentPrice: currentPrice,
+        status: 'monitoring',
+        createdAt: new Date().toISOString(),
       });
+
+      toast({
+        title: 'Bid saved to wishlist',
+        description: "We'll notify you when the price drops. Full automation may be temporarily unavailable.",
+      });
+      
+      onClose();
+      setLocation('/wishlist');
     } finally {
       setLoading(false);
     }
