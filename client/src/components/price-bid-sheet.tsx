@@ -136,19 +136,11 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         }
       }
 
-      // First attempt - may ask for address confirmation
-      let result = await invoke<{
+      // Call tira_price_bidding with addressConfirmed: true to avoid duplicate bids
+      // Previously we called twice (once without, once with) which caused duplicate bids
+      const result = await invoke<{
         success?: boolean;
         status?: string;
-        address?: {
-          name?: string;
-          address?: string;
-          area?: string;
-          city?: string;
-          state?: string;
-          pincode?: string;
-          phone?: string;
-        };
         bid?: {
           id?: string;
           productName?: string;
@@ -172,6 +164,10 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         order?: {
           id?: string;
         };
+        monitor?: {
+          id?: string;
+          monitorId?: string;
+        };
         message?: string;
       }>('tira_price_bidding', {
         productSlug: product.slug,
@@ -185,65 +181,10 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         userEmail: user.email || '',
         sessionCookie: session,
         customerId: custId,
+        addressConfirmed: true, // Always confirm to avoid duplicate creation
         notificationMethod: 'whatsapp',
         notificationDestination: user.phone,
       });
-
-      // Handle address confirmation automatically
-      if (result?.status === 'address_confirmation_required') {
-        // Show address to user briefly
-        if (result.address) {
-          toast({
-            title: 'Using delivery address',
-            description: `${result.address.name}, ${result.address.city}`,
-          });
-        }
-
-        // Retry with addressConfirmed: true
-        result = await invoke<{
-          success?: boolean;
-          status?: string;
-          bid?: {
-            id?: string;
-            productName?: string;
-            baseProductPrice?: number;
-            baseBidPrice?: number;
-            bidAmountWithCharges?: number;
-            potentialSavings?: number;
-          };
-          payment?: {
-            id?: string;
-            status?: string;
-            qrCodeUrl?: string;
-            qr_code_url?: string;
-            upi_intent_link?: string;
-            available_actions?: Array<{
-              action?: string;
-              url?: string;
-              qr_url?: string;
-            }>;
-          };
-          order?: {
-            id?: string;
-          };
-          message?: string;
-        }>('tira_price_bidding', {
-          productSlug: product.slug,
-          productName: product.name,
-          productItemId: product.itemId,
-          productArticleId: product.articleId,
-          purchasePrice: currentPrice,
-          bidPrice: finalBidPrice,
-          userId: user.phone,
-          userPhone: user.phone,
-          userEmail: user.email || '',
-          sessionCookie: session,
-          customerId: custId,
-          addressConfirmed: true,
-          notificationMethod: 'whatsapp',
-          notificationDestination: user.phone,
-        });
-      }
 
       // Store tool response for display
       setToolResponse(result);
@@ -255,6 +196,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
 
       const bidIdValue = result?.bid?.id;
       const paymentIdValue = result?.payment?.id;
+      const monitorIdValue = result?.monitor?.id || result?.monitor?.monitorId;
       
       // Extract QR code URL
       const qrUrl = result?.payment?.qrCodeUrl || 
@@ -269,11 +211,12 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
         setBidId(bidIdValue);
         setPaymentId(paymentIdValue);
         
-        // Store bid locally with pending status
+        // Store bid locally with pending status (include monitorId for deletion)
         addBid({
           id: bidIdValue,
           bidId: bidIdValue,
           paymentId: paymentIdValue,
+          monitorId: monitorIdValue,
           product: {
             name: product.name,
             brand: product.brand,
@@ -297,35 +240,77 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
 
       // If no payment required or already activated
       if (bidIdValue) {
-        // Try to activate if payment is already complete
+        // ALWAYS try to activate the bid - this is required for monitoring to start
         if (paymentIdValue) {
           try {
-            await invoke('tira_activate_price_bidding', {
+            console.log('[PriceBid] Activating bid:', { bidId: bidIdValue, paymentId: paymentIdValue });
+            const activateResult = await invoke<{ 
+              success?: boolean; 
+              monitor?: { id?: string; monitorId?: string };
+            }>('tira_activate_price_bidding', {
               bidId: bidIdValue,
               paymentId: paymentIdValue,
             });
+            console.log('[PriceBid] Activation result:', activateResult);
+            
+            // Get monitorId from activation result if not already present
+            const finalMonitorId = monitorIdValue || activateResult?.monitor?.id || activateResult?.monitor?.monitorId;
+            
+            // Store bid locally with monitorId for deletion capability
+            addBid({
+              id: bidIdValue,
+              bidId: bidIdValue,
+              paymentId: paymentIdValue,
+              monitorId: finalMonitorId,
+              product: {
+                name: product.name,
+                brand: product.brand,
+                image: product.image,
+                slug: product.slug,
+              },
+              bidPrice: finalBidPrice,
+              currentPrice: currentPrice,
+              status: 'monitoring',
+              createdAt: new Date().toISOString(),
+            });
           } catch (activateErr) {
             console.warn('Failed to activate bid:', activateErr);
-            // Continue anyway
+            // Store bid anyway but with warning
+            addBid({
+              id: bidIdValue,
+              bidId: bidIdValue,
+              paymentId: paymentIdValue,
+              monitorId: monitorIdValue,
+              product: {
+                name: product.name,
+                brand: product.brand,
+                image: product.image,
+                slug: product.slug,
+              },
+              bidPrice: finalBidPrice,
+              currentPrice: currentPrice,
+              status: 'monitoring',
+              createdAt: new Date().toISOString(),
+            });
           }
+        } else {
+          // No payment ID - store bid directly
+          addBid({
+            id: bidIdValue,
+            bidId: bidIdValue,
+            monitorId: monitorIdValue,
+            product: {
+              name: product.name,
+              brand: product.brand,
+              image: product.image,
+              slug: product.slug,
+            },
+            bidPrice: finalBidPrice,
+            currentPrice: currentPrice,
+            status: 'monitoring',
+            createdAt: new Date().toISOString(),
+          });
         }
-
-        // Store bid locally
-        addBid({
-          id: bidIdValue,
-          bidId: bidIdValue,
-          paymentId: paymentIdValue,
-          product: {
-            name: product.name,
-            brand: product.brand,
-            image: product.image,
-            slug: product.slug,
-          },
-          bidPrice: finalBidPrice,
-          currentPrice: currentPrice,
-          status: 'monitoring',
-          createdAt: new Date().toISOString(),
-        });
 
         toast({
           title: 'Price bid submitted!',
