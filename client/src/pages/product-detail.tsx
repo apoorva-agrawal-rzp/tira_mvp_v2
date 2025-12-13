@@ -17,7 +17,8 @@ import {
   Star, 
   Heart, 
   Share2, 
-  ShoppingBag, 
+  ShoppingBag,
+  ShoppingCart,
   Zap, 
   Truck, 
   RefreshCw,
@@ -51,7 +52,7 @@ export default function ProductDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const isMobile = useIsMobile();
   const { invoke } = useMCP();
-  const { session, user, addToCart, isHydrated } = useAppStore();
+  const { session, user, addToCart, isHydrated, cart } = useAppStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -297,6 +298,20 @@ export default function ProductDetailPage() {
           </Button>
           <Button variant="ghost" size="icon" data-testid="button-share">
             <Share2 className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation('/account/cart')}
+            className="relative"
+            data-testid="button-cart-header"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
+                {cart.length > 9 ? '9+' : cart.length}
+              </span>
+            )}
           </Button>
         </div>
       </header>

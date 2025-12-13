@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Phone } from 'lucide-react';
+import { Loader2, Phone, X } from 'lucide-react';
+import { SiRazorpay } from 'react-icons/si';
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('');
@@ -67,6 +68,17 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 px-4 py-3">
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-white text-lg font-light tracking-[0.2em]">tira</span>
+          <X className="w-4 h-4 text-white/70" />
+          <SiRazorpay className="w-6 h-6 text-white" />
+        </div>
+        <p className="text-center text-white/90 text-xs mt-1 font-medium">
+          Powered by UPI Reserve Pay
+        </p>
+      </div>
+      
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <TiraLogoFull className="mb-6" />
         
