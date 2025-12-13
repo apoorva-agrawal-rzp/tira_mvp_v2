@@ -167,12 +167,7 @@ export default function BagPage() {
 
             <Button
               className="w-full py-6 text-base font-semibold"
-              onClick={() => {
-                toast({
-                  title: 'Coming soon',
-                  description: 'Checkout will be available soon',
-                });
-              }}
+              onClick={() => setLocation('/checkout')}
               data-testid="button-checkout"
             >
               <ShoppingBag className="w-5 h-5 mr-2" />

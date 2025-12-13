@@ -137,7 +137,7 @@ export function HeroBannerCarousel({ compact = false }: HeroBannerCarouselProps)
             variant="ghost"
             size="icon"
             onClick={prevSlide}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm"
+            className="absolute -left-3 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background text-foreground shadow-md border border-border"
             data-testid="banner-prev"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -146,7 +146,7 @@ export function HeroBannerCarousel({ compact = false }: HeroBannerCarouselProps)
             variant="ghost"
             size="icon"
             onClick={nextSlide}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm"
+            className="absolute -right-3 top-1/2 -translate-y-1/2 bg-background/80 hover:bg-background text-foreground shadow-md border border-border"
             data-testid="banner-next"
           >
             <ChevronRight className="w-5 h-5" />

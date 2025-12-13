@@ -1,36 +1,47 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ProductImage } from '@/components/product-image';
+import { useMCP } from '@/hooks/use-mcp';
+import { parseMCPProductResponse } from '@/lib/mcp-parser';
+import type { Product } from '@shared/schema';
 
-import lipstickImg from '@assets/generated_images/lipstick_product_image.png';
-import serumImg from '@assets/generated_images/serum_skincare_product.png';
-import perfumeImg from '@assets/generated_images/perfume_fragrance_bottle.png';
-import hairImg from '@assets/generated_images/hair_care_product.png';
-import eyeshadowImg from '@assets/generated_images/makeup_eyeshadow_palette.png';
-import lotionImg from '@assets/generated_images/body_lotion_product.png';
-
-interface ProductCategory {
-  id: string;
-  name: string;
-  image: string;
-  query: string;
-  bgColor: string;
-}
-
-const productCategories: ProductCategory[] = [
-  { id: 'lipstick', name: 'Lipsticks', image: lipstickImg, query: 'lipstick', bgColor: 'bg-pink-100 dark:bg-pink-900/30' },
-  { id: 'serum', name: 'Serums', image: serumImg, query: 'serum skincare', bgColor: 'bg-amber-100 dark:bg-amber-900/30' },
-  { id: 'perfume', name: 'Perfumes', image: perfumeImg, query: 'perfume fragrance', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
-  { id: 'hair', name: 'Hair Care', image: hairImg, query: 'shampoo hair', bgColor: 'bg-teal-100 dark:bg-teal-900/30' },
-  { id: 'eyeshadow', name: 'Eyeshadow', image: eyeshadowImg, query: 'eyeshadow makeup', bgColor: 'bg-rose-100 dark:bg-rose-900/30' },
-  { id: 'lotion', name: 'Lotions', image: lotionImg, query: 'body lotion', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
+const productQueries = [
+  { id: 'lipstick', name: 'Lipsticks', query: 'lipstick' },
+  { id: 'serum', name: 'Serums', query: 'serum skincare' },
+  { id: 'perfume', name: 'Perfumes', query: 'perfume fragrance' },
+  { id: 'hair', name: 'Hair Care', query: 'shampoo hair' },
+  { id: 'eyeshadow', name: 'Eyeshadow', query: 'eyeshadow makeup' },
+  { id: 'lotion', name: 'Lotions', query: 'body lotion' },
 ];
 
 export function ProductImageCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
+  const { invoke } = useMCP();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const result = await invoke<unknown>('get_products', {
+          query: 'bestseller trending',
+          limit: 12,
+        });
+        const fetchedProducts = parseMCPProductResponse(result);
+        setProducts(fetchedProducts.slice(0, 8));
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [invoke]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -43,7 +54,7 @@ export function ProductImageCarousel() {
 
   return (
     <div className="relative" data-testid="product-image-carousel">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <h3 className="font-bold text-lg">Shop by Product</h3>
         <div className="flex gap-1">
           <Button
@@ -67,30 +78,43 @@ export function ProductImageCarousel() {
 
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4"
+        className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4"
       >
-        {productCategories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => setLocation(`/search?q=${encodeURIComponent(category.query)}`)}
-            className="flex-shrink-0 group hover-elevate active-elevate-2 rounded-xl"
-            data-testid={`product-category-${category.id}`}
-          >
-            <div
-              className={cn(
-                'w-24 h-24 rounded-2xl overflow-hidden mb-2 p-2',
-                category.bgColor
-              )}
-            >
-              <img
-                src={category.image}
-                alt={category.name}
-                className="w-full h-full object-contain"
-              />
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-28">
+              <div className="w-28 h-28 rounded-xl bg-muted animate-pulse mb-2" />
+              <div className="h-3 bg-muted rounded animate-pulse w-20 mx-auto" />
             </div>
-            <p className="text-sm font-medium text-center">{category.name}</p>
-          </button>
-        ))}
+          ))
+        ) : products.length > 0 ? (
+          products.map((product) => (
+            <button
+              key={product.slug}
+              onClick={() => setLocation(`/product/${product.slug}`)}
+              className="flex-shrink-0 group hover-elevate active-elevate-2 rounded-xl w-28"
+              data-testid={`product-item-${product.slug}`}
+            >
+              <div className="w-28 h-28 rounded-xl overflow-hidden mb-2 bg-muted">
+                <ProductImage
+                  src={product.images?.[0]?.url}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <p className="text-xs font-medium text-center line-clamp-2 leading-tight px-1">
+                {product.name}
+              </p>
+              <p className="text-xs text-primary font-semibold text-center mt-0.5">
+                ₹{(product.effectivePrice || product.price?.effective?.min || 0).toLocaleString()}
+              </p>
+            </button>
+          ))
+        ) : (
+          <div className="flex items-center justify-center w-full py-8">
+            <p className="text-sm text-muted-foreground">No products found</p>
+          </div>
+        )}
       </div>
     </div>
   );

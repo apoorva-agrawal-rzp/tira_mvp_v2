@@ -19,6 +19,7 @@ import PaymentMethodsPage from "@/pages/payment-methods";
 import AddressesPage from "@/pages/addresses";
 import AdminPage from "@/pages/admin";
 import BagPage from "@/pages/cart";
+import CheckoutPage from "@/pages/checkout";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -70,6 +71,11 @@ function Router() {
       <Route path="/account/bag">
         <ProtectedRoute>
           <BagPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/checkout">
+        <ProtectedRoute>
+          <CheckoutPage />
         </ProtectedRoute>
       </Route>
       <Route path="/admin">

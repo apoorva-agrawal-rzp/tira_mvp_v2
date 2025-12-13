@@ -195,28 +195,28 @@ export default function SearchPage() {
           </Button>
           
           <div className="flex-1 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               ref={searchInputRef}
-              type="search"
+              type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search for products..."
-              className="pl-10 pr-10 h-10"
+              className="pl-10 pr-4 h-10"
               data-testid="input-search"
             />
-            {query && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
-                onClick={handleClear}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
           </div>
+          {query && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleClear}
+              data-testid="button-clear-search"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
         </form>
       </header>
 
