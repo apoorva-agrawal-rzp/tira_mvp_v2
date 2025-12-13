@@ -7,7 +7,7 @@ import { LoadingScreen } from '@/components/loading-screen';
 import { useAppStore } from '@/lib/store';
 import { useMCP } from '@/hooks/use-mcp';
 import type { Order } from '@shared/schema';
-import { Package, CheckCircle2, Truck, Tag, Search, Zap, RefreshCw } from 'lucide-react';
+import { Package, CheckCircle2, Truck, Tag, Search, Zap, RefreshCw, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function formatDate(dateStr: string) {
@@ -286,130 +286,138 @@ export default function OrdersPage() {
               <span className="text-sm text-muted-foreground">({orders.length})</span>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={async () => {
-              if (!user?.phone || !session) return;
-              
-              setLoading(true);
-              try {
-                // Fetch orders using get_orders tool
-                const result = await invoke<{
-                  success?: boolean;
-                  orders?: Array<{
-                    order_id?: string;
-                    orderId?: string;
-                    id?: string;
-                    status?: string;
-                    items?: Array<{
-                      product?: {
-                        name?: string;
-                        brand?: string;
-                        image?: string;
-                        slug?: string;
-                      };
-                      price?: number;
-                      quantity?: number;
-                    }>;
-                    total?: number;
-                    paid_amount?: number;
-                    created_at?: string;
-                    placed_at?: string;
-                  }>;
-                }>('get_orders', {
-                  cookies: session,
-                  page_no: 1,
-                  page_size: 50,
-                });
-
-                const allOrders: Order[] = [];
-
-                if (result.orders && result.orders.length > 0) {
-                  const tiraOrders: Order[] = result.orders.map((o) => {
-                    const orderId = o.order_id || o.orderId || o.id || '';
-                    const firstItem = o.items?.[0];
-                    return {
-                      id: orderId,
-                      product: {
-                        name: firstItem?.product?.name || 'Product',
-                        brand: firstItem?.product?.brand,
-                        image: firstItem?.product?.image,
-                        slug: firstItem?.product?.slug || '',
-                      },
-                      paidPrice: o.paid_amount || o.total || 0,
-                      originalPrice: o.paid_amount || o.total || 0,
-                      savings: 0,
-                      status: (o.status?.toLowerCase() as Order['status']) || 'processing',
-                      placedAt: o.placed_at || o.created_at || new Date().toISOString(),
-                      type: 'direct' as const,
-                    };
-                  });
-                  allOrders.push(...tiraOrders);
-                }
-
-                // Also fetch completed bids
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation('/account/bag')}
+              data-testid="button-bag"
+            >
+              <ShoppingBag className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                if (!user?.phone || !session) return;
+                
+                setLoading(true);
                 try {
-                  const bidResult = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
-                    userId: user.phone,
-                    includeCompleted: true,
+                  const result = await invoke<{
+                    success?: boolean;
+                    orders?: Array<{
+                      order_id?: string;
+                      orderId?: string;
+                      id?: string;
+                      status?: string;
+                      items?: Array<{
+                        product?: {
+                          name?: string;
+                          brand?: string;
+                          image?: string;
+                          slug?: string;
+                        };
+                        price?: number;
+                        quantity?: number;
+                      }>;
+                      total?: number;
+                      paid_amount?: number;
+                      created_at?: string;
+                      placed_at?: string;
+                    }>;
+                  }>('get_orders', {
+                    cookies: session,
+                    page_no: 1,
+                    page_size: 50,
                   });
 
-                  if (bidResult.bids) {
-                    const completedBids = bidResult.bids.filter((b: Record<string, unknown>) => 
-                      (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
-                      (b.orderId || b.order_id)
-                    );
+                  const allOrders: Order[] = [];
 
-                    const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
-                      const orderId = (b.orderId || b.order_id) as string;
-                      const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
-                      const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
-                      
+                  if (result.orders && result.orders.length > 0) {
+                    const tiraOrders: Order[] = result.orders.map((o) => {
+                      const orderId = o.order_id || o.orderId || o.id || '';
+                      const firstItem = o.items?.[0];
                       return {
                         id: orderId,
                         product: {
-                          name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
-                          brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
-                          image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
-                          slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+                          name: firstItem?.product?.name || 'Product',
+                          brand: firstItem?.product?.brand,
+                          image: firstItem?.product?.image,
+                          slug: firstItem?.product?.slug || '',
                         },
-                        paidPrice: bidPrice,
-                        originalPrice: currentPrice,
-                        savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
-                        status: 'processing' as const,
-                        placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
-                        type: 'price_bid' as const,
+                        paidPrice: o.paid_amount || o.total || 0,
+                        originalPrice: o.paid_amount || o.total || 0,
+                        savings: 0,
+                        status: (o.status?.toLowerCase() as Order['status']) || 'processing',
+                        placedAt: o.placed_at || o.created_at || new Date().toISOString(),
+                        type: 'direct' as const,
                       };
                     });
-
-                    const orderMap = new Map<string, Order>();
-                    allOrders.forEach(o => orderMap.set(o.id, o));
-                    bidOrders.forEach(o => orderMap.set(o.id, o));
-                    allOrders.splice(0, allOrders.length, ...Array.from(orderMap.values()));
+                    allOrders.push(...tiraOrders);
                   }
-                } catch (bidErr) {
-                  console.warn('Failed to fetch bids:', bidErr);
+
+                  try {
+                    const bidResult = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+                      userId: user.phone,
+                      includeCompleted: true,
+                    });
+
+                    if (bidResult.bids) {
+                      const completedBids = bidResult.bids.filter((b: Record<string, unknown>) => 
+                        (b.status === 'completed' || b.status === 'fulfilled' || b.status === 'success') && 
+                        (b.orderId || b.order_id)
+                      );
+
+                      const bidOrders: Order[] = completedBids.map((b: Record<string, unknown>) => {
+                        const orderId = (b.orderId || b.order_id) as string;
+                        const bidPrice = (b.bidPrice || b.targetPrice || 0) as number;
+                        const currentPrice = (b.currentPrice || b.purchasePrice || 0) as number;
+                        
+                        return {
+                          id: orderId,
+                          product: {
+                            name: (b.productName || (b.product as { name?: string })?.name || 'Product') as string,
+                            brand: (b.productBrand || (b.product as { brand?: string })?.brand) as string | undefined,
+                            image: (b.productImage || (b.product as { image?: string })?.image) as string | undefined,
+                            slug: (b.productSlug || (b.product as { slug?: string })?.slug || '') as string,
+                          },
+                          paidPrice: bidPrice,
+                          originalPrice: currentPrice,
+                          savings: currentPrice > bidPrice ? currentPrice - bidPrice : 0,
+                          status: 'processing' as const,
+                          placedAt: (b.completedAt || b.fulfilledAt || b.createdAt || new Date().toISOString()) as string,
+                          type: 'price_bid' as const,
+                        };
+                      });
+
+                      const orderMap = new Map<string, Order>();
+                      allOrders.forEach(o => orderMap.set(o.id, o));
+                      bidOrders.forEach(o => orderMap.set(o.id, o));
+                      allOrders.splice(0, allOrders.length, ...Array.from(orderMap.values()));
+                    }
+                  } catch (bidErr) {
+                    console.warn('Failed to fetch bids:', bidErr);
+                  }
+
+                  const uniqueOrders = Array.from(
+                    new Map(allOrders.map((o) => [o.id, o])).values()
+                  ).sort(
+                    (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+                  );
+
+                  setOrders(uniqueOrders);
+                } catch (err) {
+                  console.error('Failed to refresh orders:', err);
+                } finally {
+                  setLoading(false);
                 }
-
-                const uniqueOrders = Array.from(
-                  new Map(allOrders.map((o) => [o.id, o])).values()
-                ).sort(
-                  (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
-                );
-
-                setOrders(uniqueOrders);
-              } catch (err) {
-                console.error('Failed to refresh orders:', err);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-            data-testid="refresh-orders"
-          >
-            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-          </Button>
+              }}
+              disabled={loading}
+              data-testid="refresh-orders"
+            >
+              <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+            </Button>
+          </div>
         </div>
       </header>
 

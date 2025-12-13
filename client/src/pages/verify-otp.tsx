@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SiRazorpay } from 'react-icons/si';
 
 export default function VerifyOTPPage() {
   const [otp, setOtp] = useState(['', '', '', '']);
@@ -206,72 +207,85 @@ export default function VerifyOTPPage() {
   const isOtpComplete = otp.join('').length === 4;
 
   return (
-    <div className="min-h-screen flex flex-col p-6 bg-background">
-      <Button
-        variant="ghost"
-        onClick={() => setLocation('/login')}
-        className="self-start -ml-2 mb-6"
-        data-testid="button-back"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back
-      </Button>
-
-      <h1 className="text-2xl font-bold mb-2">Verify OTP</h1>
-      <p className="text-muted-foreground mb-8">
-        Enter the 4-digit code sent to +91 {maskedPhone}
-      </p>
-
-      <div className="flex justify-center gap-3 mb-6">
-        {otp.map((digit, index) => (
-          <input
-            key={index}
-            ref={inputRefs[index]}
-            type="tel"
-            inputMode="numeric"
-            maxLength={4}
-            value={digit}
-            onChange={(e) => handleOtpChange(index, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(index, e)}
-            className={cn(
-              'w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl outline-none transition-colors',
-              'focus:border-primary',
-              digit ? 'border-primary bg-primary/5' : 'border-border'
-            )}
-            data-testid={`input-otp-${index}`}
-          />
-        ))}
+    <div className="min-h-screen flex flex-col bg-background py-4">
+      <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 px-4 py-3 mx-4 rounded-xl mb-6">
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-white text-lg font-light tracking-[0.2em]">tira</span>
+          <X className="w-4 h-4 text-white/70" />
+          <SiRazorpay className="w-6 h-6 text-white" />
+        </div>
+        <p className="text-center text-white/90 text-xs mt-1 font-medium">
+          Powered by UPI Reserve Pay
+        </p>
       </div>
 
-      <button
-        onClick={handleResend}
-        disabled={resendTimer > 0}
-        className={cn(
-          'text-sm mb-6 text-center transition-colors',
-          resendTimer > 0 ? 'text-muted-foreground' : 'text-primary font-medium'
-        )}
-        data-testid="button-resend-otp"
-      >
-        {resendTimer > 0
-          ? `Resend OTP in 00:${resendTimer.toString().padStart(2, '0')}`
-          : 'Resend OTP'}
-      </button>
+      <div className="px-6">
+        <Button
+          variant="ghost"
+          onClick={() => setLocation('/login')}
+          className="self-start -ml-2 mb-6"
+          data-testid="button-back"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
 
-      <Button
-        onClick={handleVerify}
-        disabled={loading || !isOtpComplete}
-        className="w-full py-6 text-base font-semibold"
-        data-testid="button-verify-otp"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Verifying...
-          </>
-        ) : (
-          'VERIFY'
-        )}
-      </Button>
+        <h1 className="text-2xl font-bold mb-2">Verify OTP</h1>
+        <p className="text-muted-foreground mb-8">
+          Enter the 4-digit code sent to +91 {maskedPhone}
+        </p>
+
+        <div className="flex justify-center gap-3 mb-6">
+          {otp.map((digit, index) => (
+            <input
+              key={index}
+              ref={inputRefs[index]}
+              type="tel"
+              inputMode="numeric"
+              maxLength={4}
+              value={digit}
+              onChange={(e) => handleOtpChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              className={cn(
+                'w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl outline-none transition-colors',
+                'focus:border-primary',
+                digit ? 'border-primary bg-primary/5' : 'border-border'
+              )}
+              data-testid={`input-otp-${index}`}
+            />
+          ))}
+        </div>
+
+        <button
+          onClick={handleResend}
+          disabled={resendTimer > 0}
+          className={cn(
+            'text-sm mb-6 text-center w-full transition-colors',
+            resendTimer > 0 ? 'text-muted-foreground' : 'text-primary font-medium'
+          )}
+          data-testid="button-resend-otp"
+        >
+          {resendTimer > 0
+            ? `Resend OTP in 00:${resendTimer.toString().padStart(2, '0')}`
+            : 'Resend OTP'}
+        </button>
+
+        <Button
+          onClick={handleVerify}
+          disabled={loading || !isOtpComplete}
+          className="w-full py-6 text-base font-semibold"
+          data-testid="button-verify-otp"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Verifying...
+            </>
+          ) : (
+            'VERIFY'
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

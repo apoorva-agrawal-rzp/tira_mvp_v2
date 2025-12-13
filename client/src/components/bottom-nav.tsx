@@ -1,6 +1,7 @@
 import { useLocation } from 'wouter';
 import { Home, Heart, Package, User } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -17,6 +18,7 @@ interface BottomNavProps {
 export function BottomNav({ active }: BottomNavProps) {
   const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
+  const { orders } = useAppStore();
 
   return (
     <nav 
@@ -35,17 +37,24 @@ export function BottomNav({ active }: BottomNavProps) {
             key={item.id}
             onClick={() => setLocation(item.path)}
             className={cn(
-              'flex flex-col items-center py-1 px-3 min-w-[64px] transition-colors',
+              'flex flex-col items-center py-1 px-3 min-w-[64px] transition-colors relative',
               isActive ? 'text-primary' : 'text-muted-foreground'
             )}
             data-testid={`nav-${item.id}`}
           >
-            <Icon 
-              className={cn(
-                'w-6 h-6 mb-0.5',
-                isActive && 'fill-primary/20'
-              )} 
-            />
+            <div className="relative">
+              <Icon 
+                className={cn(
+                  'w-6 h-6 mb-0.5',
+                  isActive && 'fill-primary/20'
+                )} 
+              />
+              {item.id === 'orders' && orders.length > 0 && (
+                <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-medium px-1">
+                  {orders.length > 99 ? '99+' : orders.length}
+                </span>
+              )}
+            </div>
             <span className="text-xs font-medium">{item.label}</span>
           </button>
         );

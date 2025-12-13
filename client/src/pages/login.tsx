@@ -67,8 +67,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 px-4 py-3">
+    <div className="min-h-screen flex flex-col bg-background py-4">
+      <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 px-4 py-3 mx-4 rounded-xl">
         <div className="flex items-center justify-center gap-3">
           <span className="text-white text-lg font-light tracking-[0.2em]">tira</span>
           <X className="w-4 h-4 text-white/70" />
