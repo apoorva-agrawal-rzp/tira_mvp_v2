@@ -189,6 +189,13 @@ export default function CheckoutPage() {
         }
       }
 
+      // Set delivery mode to non-express before checkout
+      await invoke('tira_set_delivery_mode', {
+        express: false,
+        areaCode: selectedAddress.area_code,
+        sessionCookie: session,
+      });
+
       // Create checkout with selected payment method
       const checkoutResult = await invoke<{ 
         success?: boolean;
