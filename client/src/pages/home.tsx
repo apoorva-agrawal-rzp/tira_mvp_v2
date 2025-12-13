@@ -3,23 +3,16 @@ import { useLocation } from 'wouter';
 import { TiraLogo } from '@/components/tira-logo';
 import { BottomNav } from '@/components/bottom-nav';
 import { ProductCard, ProductCardSkeleton } from '@/components/product-card';
+import { HeroBannerCarousel } from '@/components/hero-banner-carousel';
+import { ProductImageCarousel } from '@/components/product-image-carousel';
+import { InteractiveCategoryGrid } from '@/components/interactive-category-grid';
 import { Button } from '@/components/ui/button';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
-import { Search, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-const categories = [
-  { id: 'makeup', name: 'Makeup', icon: Palette, query: 'makeup lipstick', color: 'bg-pink-100 dark:bg-pink-900/30' },
-  { id: 'skincare', name: 'Skincare', icon: Sparkles, query: 'skincare serum', color: 'bg-purple-100 dark:bg-purple-900/30' },
-  { id: 'hair', name: 'Hair Care', icon: Scissors, query: 'shampoo hair', color: 'bg-blue-100 dark:bg-blue-900/30' },
-  { id: 'fragrance', name: 'Fragrance', icon: Droplets, query: 'perfume fragrance', color: 'bg-amber-100 dark:bg-amber-900/30' },
-  { id: 'bath', name: 'Bath & Body', icon: Bath, query: 'body lotion', color: 'bg-teal-100 dark:bg-teal-900/30' },
-  { id: 'tools', name: 'Tools', icon: ShoppingBag, query: 'beauty tools brush', color: 'bg-rose-100 dark:bg-rose-900/30' },
-];
+import { Search, ShoppingBag, ChevronRight, Zap } from 'lucide-react';
 
 export default function HomePage() {
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
@@ -82,52 +75,11 @@ export default function HomePage() {
       </header>
 
       <div className="p-4 space-y-6">
-        <section className="bg-gradient-to-r from-primary to-pink-400 rounded-2xl p-6 text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-5 h-5" />
-              <span className="text-sm font-medium opacity-90">Exclusive Feature</span>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Buy at Your Own Price</h2>
-            <p className="opacity-90 mb-4 text-sm max-w-xs">
-              Set your target price & get auto-purchased when price drops!
-            </p>
-            <Button
-              onClick={() => setLocation('/search')}
-              className="bg-white text-primary hover:bg-white/90"
-            >
-              Try Now
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-          <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full" />
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full" />
-        </section>
+        <HeroBannerCarousel />
 
-        <section>
-          <h3 className="font-bold text-lg mb-4">Shop by Category</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {categories.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setLocation(`/search?q=${encodeURIComponent(cat.query)}`)}
-                  className={cn(
-                    'rounded-xl p-4 text-center transition-all hover-elevate',
-                    cat.color
-                  )}
-                  data-testid={`category-${cat.id}`}
-                >
-                  <div className="w-12 h-12 rounded-full bg-background/60 dark:bg-background/30 flex items-center justify-center mx-auto mb-2">
-                    <Icon className="w-6 h-6 text-foreground" />
-                  </div>
-                  <span className="text-sm font-medium">{cat.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <ProductImageCarousel />
+
+        <InteractiveCategoryGrid />
 
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -159,7 +111,10 @@ export default function HomePage() {
         </section>
 
         <section className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/30 dark:to-purple-950/30 rounded-2xl p-5">
-          <h3 className="font-bold mb-4">How "Buy at Your Price" Works</h3>
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-primary" />
+            How "Buy at Your Price" Works
+          </h3>
           <div className="space-y-4">
             <div className="flex gap-4">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold">
@@ -193,7 +148,7 @@ export default function HomePage() {
 
         {user && (
           <section className="bg-muted/50 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <p className="text-sm text-muted-foreground">Welcome back,</p>
                 <p className="font-bold text-lg">{user.name || user.phone}</p>

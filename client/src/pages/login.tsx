@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { TiraLogoFull } from '@/components/tira-logo';
+import { HeroBannerCarousel } from '@/components/hero-banner-carousel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMCP } from '@/hooks/use-mcp';
@@ -65,9 +66,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 bg-background">
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <TiraLogoFull className="mb-8" />
+    <div className="min-h-screen flex flex-col bg-background">
+      <div className="p-4">
+        <HeroBannerCarousel compact />
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <TiraLogoFull className="mb-6" />
         
         <h1 className="text-2xl font-bold mb-2 text-center">Welcome to TIRA</h1>
         <p className="text-muted-foreground mb-8 text-center">India's Beauty Destination</p>
@@ -108,7 +113,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <p className="text-center text-muted-foreground text-xs">
+      <p className="text-center text-muted-foreground text-xs p-4">
         By continuing, you agree to our Terms of Service & Privacy Policy
       </p>
     </div>
