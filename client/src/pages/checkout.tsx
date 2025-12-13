@@ -194,21 +194,64 @@ export default function CheckoutPage() {
         throw new Error('Failed to get cart ID');
       }
 
+      // Step 1.5: Try to set delivery mode to non-express (optional, don't fail if this errors)
+      try {
+        await invoke('tira_set_delivery_mode', {
+          express: false,
+          areaCode: selectedAddress.area_code,
+          sessionCookie: session,
+        });
+      } catch (deliveryModeError) {
+        // Ignore delivery mode errors - this is not critical for the order
+        console.log('Delivery mode setting skipped (non-critical):', deliveryModeError);
+      }
+
       // Step 2: Create checkout on TIRA (creates order, returns TIRA order_id)
-      const checkoutResult = await invoke<{ 
+      let checkoutResult: { 
         success?: boolean;
         order_id?: string;
         data?: { cart?: { order_id?: string } };
         error?: string;
-      }>('checkout', {
-        cartId,
-        addressId: selectedAddress.id, // Use address.id (UUID), NOT uid
-        city: selectedAddress.city.toUpperCase(),
-        pincode: selectedAddress.area_code,
-        sessionCookie: session,
-        paymentMode: selectedPaymentMethod,
-        codConfirmed: selectedPaymentMethod === 'COD',
-      });
+      } | null = null;
+      
+      try {
+        checkoutResult = await invoke<{ 
+          success?: boolean;
+          order_id?: string;
+          data?: { cart?: { order_id?: string } };
+          error?: string;
+        }>('checkout', {
+          cartId,
+          addressId: selectedAddress.id, // Use address.id (UUID), NOT uid
+          city: selectedAddress.city.toUpperCase(),
+          pincode: selectedAddress.area_code,
+          sessionCookie: session,
+          paymentMode: selectedPaymentMethod,
+          codConfirmed: selectedPaymentMethod === 'COD',
+        });
+      } catch (checkoutErr) {
+        // If checkout fails with delivery mode error, try again - sometimes it works on retry
+        const errMsg = checkoutErr instanceof Error ? checkoutErr.message : String(checkoutErr);
+        if (errMsg.includes('delivery mode') || errMsg.includes('express')) {
+          console.log('Checkout failed with delivery mode error, retrying...');
+          checkoutResult = await invoke<{ 
+            success?: boolean;
+            order_id?: string;
+            data?: { cart?: { order_id?: string } };
+            error?: string;
+          }>('checkout', {
+            cartId,
+            addressId: selectedAddress.id,
+            city: selectedAddress.city.toUpperCase(),
+            pincode: selectedAddress.area_code,
+            sessionCookie: session,
+            paymentMode: selectedPaymentMethod,
+            codConfirmed: selectedPaymentMethod === 'COD',
+          });
+        } else {
+          throw checkoutErr;
+        }
+      }
 
       const tiraOrderId = checkoutResult?.order_id || checkoutResult?.data?.cart?.order_id;
       
