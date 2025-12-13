@@ -42,6 +42,7 @@ export default function HomePage() {
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
   const [, setLocation] = useLocation();
@@ -123,9 +124,14 @@ export default function HomePage() {
       const newScroll = direction === 'left' 
         ? container.scrollLeft - scrollAmount 
         : container.scrollLeft + scrollAmount;
+      
+      const newIndex = direction === 'left' 
+        ? Math.max(0, featuredIndex - 2)
+        : Math.min(featuredProducts.length - 4, featuredIndex + 2);
+      setFeaturedIndex(newIndex);
       container.scrollTo({ left: newScroll, behavior: 'smooth' });
     }
-  }, []);
+  }, [featuredIndex, featuredProducts.length]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
