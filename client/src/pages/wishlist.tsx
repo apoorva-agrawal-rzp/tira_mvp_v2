@@ -49,8 +49,27 @@ export default function WishlistPage() {
           const monitorId = (b.monitorId || b.monitor_id || b.priceMonitorId || 
             (b.monitor as { id?: string })?.id || b.bidId) as string | undefined;
           
-          let status = (b.status || 'monitoring') as PriceBid['status'];
-          if (b.orderId || b.status === 'completed' || b.status === 'fulfilled') {
+          const monitorActive = b.monitorActive === true;
+          const paymentStatus = b.paymentStatus as string | undefined;
+          const hasOrder = Boolean(b.orderId);
+          
+          // Determine status based on payment and monitoring state
+          let status: PriceBid['status'] = 'monitoring';
+          
+          // Completed: Payment captured + has order (monitoring may or may not be active)
+          if (paymentStatus === 'captured' && hasOrder) {
+            status = monitorActive ? 'monitoring' : 'completed';
+          }
+          // Active monitoring: Monitor is active (even if payment pending)
+          else if (monitorActive) {
+            status = 'monitoring';
+          }
+          // Failed/Pending payment without monitoring: Mark as inactive
+          else if (!monitorActive && !hasOrder) {
+            status = 'inactive' as PriceBid['status'];
+          }
+          // Explicit status from API
+          else if (b.status === 'completed' || b.status === 'fulfilled') {
             status = 'completed';
           }
           
@@ -72,7 +91,10 @@ export default function WishlistPage() {
             orderId: b.orderId as string | undefined,
           };
         });
-        setBids(mappedBids);
+        
+        // Filter out inactive bids (failed/pending without monitoring)
+        const filteredBids = mappedBids.filter(bid => bid.status !== 'inactive');
+        setBids(filteredBids);
       }
     } catch (err) {
       console.error('Failed to fetch bids:', err);
