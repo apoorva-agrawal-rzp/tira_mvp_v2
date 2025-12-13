@@ -61,14 +61,34 @@ export default function SearchPage() {
     setHasSearched(true);
     
     try {
-      // Fetch multiple pages to get more products
-      let allFetchedProducts: Product[] = [];
+      // Fetch multiple pages to get more products (API returns ~5 per page)
+      const allFetchedProducts: Product[] = [];
+      const pagesToFetch = 5; // Fetch 5 pages to get ~25 products
       
-      const result = await invoke<unknown>('get_products', {
-        query: searchQuery,
-        limit: MAX_PRODUCTS_PER_REQUEST,
-      });
-      allFetchedProducts = parseMCPProductResponse(result);
+      // Fetch pages in parallel for speed
+      const pagePromises = Array.from({ length: pagesToFetch }, (_, i) => 
+        invoke<unknown>('get_products', {
+          query: searchQuery,
+          limit: 12,
+          pageId: i,
+        }).catch(() => null)
+      );
+      
+      const results = await Promise.all(pagePromises);
+      
+      // Parse and combine all results
+      const seenSlugs = new Set<string>();
+      for (const result of results) {
+        if (result) {
+          const products = parseMCPProductResponse(result);
+          for (const product of products) {
+            if (product.slug && !seenSlugs.has(product.slug)) {
+              seenSlugs.add(product.slug);
+              allFetchedProducts.push(product);
+            }
+          }
+        }
+      }
 
       cacheProducts(allFetchedProducts);
       setAllProducts(allFetchedProducts);
