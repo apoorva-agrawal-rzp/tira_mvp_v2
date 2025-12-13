@@ -1,0 +1,533 @@
+# TIRA Agentic Shopping - Complete Purchase Flow
+
+> Step-by-step documentation of tools used for end-to-end purchase
+
+---
+
+## Flow Overview
+
+```
+┌─────────────────┐
+│  1. SEARCH      │  get_products
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  2. AUTH        │  tira_send_otp → tira_verify_otp
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  3. CART        │  add_to_cart
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  4. ADDRESS     │  get_address
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  5. CHECKOUT    │  checkout (creates order on TIRA)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  6. TOKENS      │  get_token_masked_data
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  7. RZP ORDER   │  create_order_with_masked_data
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  8. PAYMENT     │  initiate_payment_with_masked_data
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  9. CONFIRM     │  mark_order_success
+└─────────────────┘
+```
+
+---
+
+## Step 1: Product Search
+
+### Tool: `get_products`
+
+**Purpose:** Search for products in TIRA catalog
+
+**Input:**
+```json
+{
+  "query": "lipstick",
+  "limit": 5
+}
+```
+
+**Key Output Fields:**
+```json
+{
+  "item_id": 7518041,
+  "article_id": "1_974033",
+  "slug": "insight-cosmetics-matte-lipstick---high-heels-42g-iyr8yea_ajdt",
+  "price": 250,
+  "brand": "INSIGHT Cosmetics",
+  "name": "Insight Cosmetics Matte Lipstick - High Heels (4.2g)"
+}
+```
+
+**Critical Fields to Extract:**
+| Field | Usage |
+|-------|-------|
+| `item_id` | Required for `add_to_cart` |
+| `article_id` | Required for `add_to_cart` |
+| `slug` | Required for `tira_price_bidding` |
+| `price` | Display & payment amount |
+
+---
+
+## Step 2: Authentication
+
+### Tool 2a: `tira_send_otp`
+
+**Purpose:** Send OTP to user's mobile number
+
+**Input:**
+```json
+{
+  "mobile": "8660637719"
+}
+```
+
+**Key Output:**
+```json
+{
+  "success": true,
+  "request_id": "7d577fc6e5b9bcbb1e03379ebe9da8ef",
+  "message": "OTP sent"
+}
+```
+
+**Critical:** Save `request_id` for verification step
+
+---
+
+### Tool 2b: `tira_verify_otp`
+
+**Purpose:** Verify OTP and get session cookie
+
+**Input:**
+```json
+{
+  "otp": "5716",
+  "request_id": "7d577fc6e5b9bcbb1e03379ebe9da8ef"
+}
+```
+
+**Key Output:**
+```json
+{
+  "verified": true,
+  "authentication": {
+    "cookies": "f.session=s%3AjDtJInJijD0oYd7LHGZBHIpH2cvxvVji...",
+    "user_info": {
+      "first_name": "Apoorva",
+      "last_name": "Agrawal",
+      "phone_numbers": [{"phone": "8660637719"}],
+      "emails": [{"email": "agrawalapoorva373@gmail.com"}]
+    }
+  }
+}
+```
+
+**Critical:** Save `cookies` (session cookie) for ALL subsequent API calls
+
+---
+
+## Step 3: Add to Cart
+
+### Tool: `add_to_cart`
+
+**Purpose:** Add product to user's cart
+
+**Input:**
+```json
+{
+  "items": [
+    {
+      "item_id": 7518041,
+      "article_id": "1_974033",
+      "quantity": 1
+    }
+  ],
+  "sessionCookie": "f.session=s%3AjDtJInJijD0oYd7LHGZBHIpH2cvxvVji..."
+}
+```
+
+**Key Output:**
+```json
+{
+  "success": true,
+  "cart_details": {
+    "cart": {
+      "id": "693ab1185f7a4fb7ccee0b23",
+      "cart_id": 1961227,
+      "items": [...],
+      "breakup_values": {
+        "raw": {
+          "total": 250
+        }
+      }
+    }
+  }
+}
+```
+
+**Critical Fields:**
+| Field | Usage | ⚠️ Warning |
+|-------|-------|------------|
+| `cart.id` | Use for checkout | ✅ Use this UUID |
+| `cart.cart_id` | DO NOT USE | ❌ This is numeric, wrong! |
+
+---
+
+## Step 4: Get Address
+
+### Tool: `get_address`
+
+**Purpose:** Fetch user's saved delivery addresses
+
+**Input:**
+```json
+{
+  "cookies": "f.session=s%3AjDtJInJijD0oYd7LHGZBHIpH2cvxvVji..."
+}
+```
+
+**Key Output:**
+```json
+{
+  "addresses": {
+    "address": [
+      {
+        "id": "69292f12c14c6926535328c3",
+        "uid": 10534666,
+        "address": "235",
+        "area": "Rohinin Apartments",
+        "city": "Delhi",
+        "state": "Delhi",
+        "area_code": "110009",
+        "is_default_address": true
+      }
+    ]
+  }
+}
+```
+
+**Critical Fields:**
+| Field | Usage | ⚠️ Warning |
+|-------|-------|------------|
+| `address.id` | Use for checkout | ✅ Use this UUID |
+| `address.uid` | DO NOT USE | ❌ This is numeric, wrong! |
+| `area_code` | Pincode for checkout | |
+
+---
+
+## Step 5: Checkout (Create Order on TIRA)
+
+### Tool: `checkout`
+
+**Purpose:** Create order in TIRA's system
+
+**Input:**
+```json
+{
+  "addressId": "69292f12c14c6926535328c3",
+  "cartId": "693ab1185f7a4fb7ccee0b23",
+  "city": "DELHI",
+  "pincode": "110009",
+  "sessionCookie": "f.session=s%3AjDtJInJijD0oYd7LHGZBHIpH2cvxvVji..."
+}
+```
+
+**Key Output:**
+```json
+{
+  "success": true,
+  "order_id": "FY693DA2FC018CBE5698",
+  "cart_id": "693ab1185f7a4fb7ccee0b23",
+  "data": {
+    "cart": {
+      "order_id": "FY693DA2FC018CBE5698",
+      "breakup_values": {
+        "raw": {
+          "total": 250
+        }
+      }
+    }
+  }
+}
+```
+
+**Critical:** 
+- `order_id` (TIRA order ID) → Save for `mark_order_success`
+- ⚠️ Order is **NOT COMPLETE** yet - payment pending!
+
+---
+
+## Step 6: Check Payment Tokens
+
+### Tool: `get_token_masked_data`
+
+**Purpose:** Check for existing UPI Reserve Pay tokens
+
+**Input:**
+```json
+{
+  "contact": "8660637719"
+}
+```
+
+**Key Output:**
+```json
+{
+  "customer": {
+    "id": "cust_RhbHzeUmCn4N13"
+  },
+  "saved_payment_methods": {
+    "items": [
+      {
+        "id": "token_Rl3IBMMuDUFrQN",
+        "method": "upi",
+        "max_amount": 100,
+        "recurring_details": {
+          "status": "confirmed",
+          "amount_blocked": 100,
+          "amount_debited": 0
+        }
+      }
+    ]
+  }
+}
+```
+
+**Token Selection Logic:**
+```
+available_amount = amount_blocked - amount_debited
+
+IF token.status == "confirmed" AND available_amount >= order_amount:
+    → Use existing token (repeat payment)
+ELSE:
+    → Create new UPI Reserve Pay mandate
+```
+
+**Critical Fields:**
+| Field | Usage |
+|-------|-------|
+| `customer.id` | Required for Razorpay order |
+| `token.id` | Required for repeat payment |
+| `amount_blocked` | Max pre-authorized amount (in paise) |
+| `amount_debited` | Already used amount (in paise) |
+
+---
+
+## Step 7: Create Razorpay Order
+
+### Tool: `create_order_with_masked_data`
+
+**Purpose:** Create payment order in Razorpay
+
+**Input (Using Existing Token):**
+```json
+{
+  "amount": 100,
+  "currency": "INR",
+  "customer_id": "cust_RhbHzeUmCn4N13",
+  "session_cookie": "f.session=s%3AjDtJInJijD0oYd7LHGZBHIpH2cvxvVji..."
+}
+```
+
+**Input (New UPI Reserve Pay):**
+```json
+{
+  "amount": 25000,
+  "currency": "INR",
+  "customer_id": "cust_RhbHzeUmCn4N13",
+  "method": "upi",
+  "token": {
+    "type": "single_block_multiple_debit",
+    "frequency": "as_presented",
+    "max_amount": 25000
+  },
+  "session_cookie": "f.session=..."
+}
+```
+
+**Key Output:**
+```json
+{
+  "id": "order_RrBEEsC3kjmKza",
+  "amount": 100,
+  "currency": "INR",
+  "status": "created"
+}
+```
+
+**⚠️ Amount Conversion:**
+| Display | API Value |
+|---------|-----------|
+| ₹1 | 100 |
+| ₹250 | 25000 |
+| ₹1000 | 100000 |
+
+---
+
+## Step 8: Initiate Payment
+
+### Tool: `initiate_payment_with_masked_data`
+
+**Purpose:** Process payment using token
+
+**Input (Repeat Payment with Token):**
+```json
+{
+  "amount": 100,
+  "order_id": "order_RrBEEsC3kjmKza",
+  "currency": "INR",
+  "customer_id": "cust_RhbHzeUmCn4N13",
+  "contact": "8660637719",
+  "token": "token_Rl3IBMMuDUFrQN",
+  "recurring": true,
+  "force_terminal_id": "term_RMD93ugGbBOhTp",
+  "session_cookie": "f.session=..."
+}
+```
+
+**Input (New UPI Intent):**
+```json
+{
+  "amount": 25000,
+  "order_id": "order_RrBEEsC3kjmKza",
+  "currency": "INR",
+  "customer_id": "cust_RhbHzeUmCn4N13",
+  "contact": "8660637719",
+  "upi_intent": true,
+  "recurring": true,
+  "force_terminal_id": "term_RMD93ugGbBOhTp",
+  "session_cookie": "f.session=..."
+}
+```
+
+**Key Output:**
+```json
+{
+  "status": "payment_initiated",
+  "razorpay_payment_id": "pay_RrBEaL5fFmqjon",
+  "payment_details": {
+    "razorpay_order_id": "order_RrBEEsC3kjmKza",
+    "razorpay_payment_id": "pay_RrBEaL5fFmqjon",
+    "razorpay_signature": "587180bc23da33746ef2f1f0a66e0524fd51efbf..."
+  }
+}
+```
+
+**Critical Constants:**
+| Constant | Value |
+|----------|-------|
+| `force_terminal_id` | `term_RMD93ugGbBOhTp` |
+| `recurring` | `true` |
+
+---
+
+## Step 9: Mark Order Success
+
+### Tool: `mark_order_success`
+
+**Purpose:** Confirm order completion in TIRA system
+
+**Input:**
+```json
+{
+  "totalAmount": "250.00",
+  "transactionRefNumber": "FY693DA2FC018CBE5698"
+}
+```
+
+**Key Output:**
+```json
+{
+  "success": true,
+  "message": "✅ Order marked as successful",
+  "transaction_details": {
+    "reference_number": "FY693DA2FC018CBE5698",
+    "amount": "250.00",
+    "timestamp": "2025-12-13T17:36:33.577Z"
+  }
+}
+```
+
+---
+
+## Complete Data Flow Summary
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                        DATA FLOW                               │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  get_products ──► item_id, article_id                          │
+│                          │                                     │
+│                          ▼                                     │
+│  tira_send_otp ──► request_id                                  │
+│                          │                                     │
+│                          ▼                                     │
+│  tira_verify_otp ──► sessionCookie                             │
+│                          │                                     │
+│                          ▼                                     │
+│  add_to_cart ──► cart.id (UUID)                                │
+│                          │                                     │
+│                          ▼                                     │
+│  get_address ──► address.id (UUID), pincode                    │
+│                          │                                     │
+│                          ▼                                     │
+│  checkout ──► TIRA order_id (e.g., FY693DA2FC018CBE5698)       │
+│                          │                                     │
+│                          ▼                                     │
+│  get_token_masked_data ──► customer_id, token_id               │
+│                          │                                     │
+│                          ▼                                     │
+│  create_order_with_masked_data ──► Razorpay order_id           │
+│                          │                                     │
+│                          ▼                                     │
+│  initiate_payment_with_masked_data ──► payment_id              │
+│                          │                                     │
+│                          ▼                                     │
+│  mark_order_success ──► Order Confirmed ✅                      │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Key IDs Reference
+
+| ID Type | Format | Example | Source |
+|---------|--------|---------|--------|
+| Cart ID | UUID | `693ab1185f7a4fb7ccee0b23` | `add_to_cart` |
+| Address ID | UUID | `69292f12c14c6926535328c3` | `get_address` |
+| TIRA Order ID | `FY...` | `FY693DA2FC018CBE5698` | `checkout` |
+| Customer ID | `cust_...` | `cust_RhbHzeUmCn4N13` | `get_token_masked_data` |
+| Token ID | `token_...` | `token_Rl3IBMMuDUFrQN` | `get_token_masked_data` |
+| Razorpay Order ID | `order_...` | `order_RrBEEsC3kjmKza` | `create_order_with_masked_data` |
+| Payment ID | `pay_...` | `pay_RrBEaL5fFmqjon` | `initiate_payment_with_masked_data` |
+
+---
+
+## Demo Mode vs Production
+
+| Aspect | Demo Mode | Production |
+|--------|-----------|------------|
+| Payment Amount | ₹1 (100 paise) | Full price |
+| Token Used | Existing ₹1 token | New mandate at order value |
+| Order Amount in TIRA | Full price (₹250) | Full price |
+| `mark_order_success` | Required | Auto via webhook |
+
+---
+
+*Document generated from actual purchase flow executed on Dec 13, 2025*

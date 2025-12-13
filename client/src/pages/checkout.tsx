@@ -164,8 +164,8 @@ export default function CheckoutPage() {
     setPaymentStep('processing');
 
     try {
-      // Add all items to cart via API and capture cart ID
-      let cartId = 'default';
+      // Step 1: Add all items to cart via API and capture cart ID (UUID)
+      let cartId = '';
       
       for (const item of cart) {
         const addResult = await invoke<{
@@ -184,47 +184,196 @@ export default function CheckoutPage() {
           throw new Error(`Failed to add ${item.name} to cart`);
         }
         
+        // Use cart.id (UUID), NOT cart.cart_id (numeric)
         if (addResult?.cart_details?.cart?.id) {
           cartId = addResult.cart_details.cart.id;
         }
       }
 
-      // Set delivery mode to non-express before checkout
-      await invoke('tira_set_delivery_mode', {
-        express: false,
-        areaCode: selectedAddress.area_code,
-        sessionCookie: session,
-      });
+      if (!cartId) {
+        throw new Error('Failed to get cart ID');
+      }
 
-      // Create checkout with selected payment method
+      // Step 2: Create checkout on TIRA (creates order, returns TIRA order_id)
       const checkoutResult = await invoke<{ 
         success?: boolean;
         order_id?: string;
-        cart_details?: { cart?: { id?: string } };
+        data?: { cart?: { order_id?: string } };
         error?: string;
       }>('checkout', {
         cartId,
-        addressId: selectedAddress.id,
+        addressId: selectedAddress.id, // Use address.id (UUID), NOT uid
+        city: selectedAddress.city.toUpperCase(),
+        pincode: selectedAddress.area_code,
         sessionCookie: session,
         paymentMode: selectedPaymentMethod,
         codConfirmed: selectedPaymentMethod === 'COD',
       });
 
-      if (checkoutResult?.success || checkoutResult?.order_id) {
-        setPaymentStep('success');
-        clearCart();
-        
-        toast({
-          title: 'Order placed successfully!',
-          description: `Order ID: ${checkoutResult.order_id || 'Processing'}`,
+      const tiraOrderId = checkoutResult?.order_id || checkoutResult?.data?.cart?.order_id;
+      
+      if (!tiraOrderId) {
+        throw new Error(checkoutResult?.error || 'Checkout failed - no order ID');
+      }
+
+      // For COD, order is complete
+      if (selectedPaymentMethod === 'COD') {
+        // Mark order success with actual amount
+        await invoke('mark_order_success', {
+          totalAmount: totalAmount.toFixed(2),
+          transactionRefNumber: tiraOrderId,
         });
 
-        setTimeout(() => {
-          setLocation('/orders');
-        }, 2000);
-      } else {
-        throw new Error(checkoutResult?.error || 'Checkout failed');
+        setPaymentStep('success');
+        clearCart();
+        toast({
+          title: 'Order placed successfully!',
+          description: `Order ID: ${tiraOrderId}`,
+        });
+        setTimeout(() => setLocation('/orders'), 2000);
+        return;
       }
+
+      // Step 3: Get payment tokens (check for existing SBMD mandates)
+      const tokenResult = await invoke<{
+        customer?: { id?: string };
+        saved_payment_methods?: { 
+          items?: Array<{
+            id: string;
+            method: string;
+            max_amount: number;
+            recurring_details?: {
+              status: string;
+              amount_blocked: number;
+              amount_debited: number;
+            };
+          }>;
+        };
+      }>('get_token_masked_data', {
+        contact: user?.phone || '',
+      });
+
+      const customerId = tokenResult?.customer?.id;
+      if (!customerId) {
+        throw new Error('Failed to get customer ID for payment');
+      }
+
+      // Find a confirmed token with available balance
+      const tokens = tokenResult?.saved_payment_methods?.items || [];
+      const confirmedToken = tokens.find(t => {
+        if (t.recurring_details?.status !== 'confirmed') return false;
+        const available = (t.recurring_details?.amount_blocked || 0) - (t.recurring_details?.amount_debited || 0);
+        return available >= 100; // At least ₹1 available
+      });
+
+      // Demo: Charge only ₹1 (100 paise) from mandate
+      const demoAmountPaise = 100; // ₹1 in paise
+
+      // Step 4: Create Razorpay order with ₹1 demo amount
+      const orderParams: Record<string, unknown> = {
+        amount: demoAmountPaise,
+        currency: 'INR',
+        customer_id: customerId,
+        session_cookie: session,
+      };
+
+      // If no existing token, create new UPI Reserve Pay mandate
+      if (!confirmedToken) {
+        orderParams.method = 'upi';
+        orderParams.token = {
+          type: 'single_block_multiple_debit',
+          frequency: 'as_presented',
+          max_amount: demoAmountPaise,
+        };
+      }
+
+      const rzpOrderResult = await invoke<{
+        id?: string;
+        status?: string;
+        error?: string;
+      }>('create_order_with_masked_data', orderParams);
+
+      const rzpOrderId = rzpOrderResult?.id;
+      if (!rzpOrderId) {
+        throw new Error('Failed to create payment order');
+      }
+
+      // Step 5: Initiate payment with ₹1 demo amount
+      const paymentParams: Record<string, unknown> = {
+        amount: demoAmountPaise,
+        order_id: rzpOrderId,
+        currency: 'INR',
+        customer_id: customerId,
+        contact: user?.phone || '',
+        recurring: true,
+        force_terminal_id: 'term_RMD93ugGbBOhTp',
+        session_cookie: session,
+      };
+
+      if (confirmedToken) {
+        // Use existing token for repeat payment
+        paymentParams.token = confirmedToken.id;
+      } else {
+        // New UPI intent flow
+        paymentParams.upi_intent = true;
+      }
+
+      const paymentResult = await invoke<{
+        status?: string;
+        razorpay_payment_id?: string;
+        payment_details?: { razorpay_payment_id?: string; status?: string };
+        error?: string;
+        upi_link?: string;
+      }>('initiate_payment_with_masked_data', paymentParams);
+
+      // Check for payment errors
+      if (paymentResult?.error) {
+        throw new Error(paymentResult.error);
+      }
+
+      const paymentId = paymentResult?.razorpay_payment_id || paymentResult?.payment_details?.razorpay_payment_id;
+      const paymentStatus = paymentResult?.status || paymentResult?.payment_details?.status;
+      
+      // For new UPI intent (no existing token), user needs to complete payment externally
+      if (!confirmedToken) {
+        // New UPI mandate setup - cannot auto-complete
+        toast({
+          title: 'UPI Payment Required',
+          description: 'Please set up Reserve Pay first in Payment Methods to use UPI payments',
+          variant: 'destructive',
+        });
+        setPaymentStep('payment');
+        return;
+      }
+
+      // For existing token payments, verify success
+      if (!paymentId) {
+        throw new Error('Payment failed - no payment confirmation received');
+      }
+
+      // Optionally verify payment status
+      if (paymentStatus && paymentStatus !== 'captured' && paymentStatus !== 'authorized' && paymentStatus !== 'created') {
+        throw new Error(`Payment failed with status: ${paymentStatus}`);
+      }
+
+      // Step 6: Mark order success with ACTUAL cart amount (not demo amount)
+      await invoke('mark_order_success', {
+        totalAmount: totalAmount.toFixed(2),
+        transactionRefNumber: tiraOrderId,
+      });
+
+      setPaymentStep('success');
+      clearCart();
+      
+      toast({
+        title: 'Order placed successfully!',
+        description: `Order ID: ${tiraOrderId}`,
+      });
+
+      setTimeout(() => {
+        setLocation('/orders');
+      }, 2000);
+
     } catch (err) {
       console.error('Checkout failed:', err);
       setPaymentStep('payment');

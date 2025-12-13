@@ -1,0 +1,182 @@
+# TIRA App - Category & Product Recommendations
+
+> Based on thorough API testing of the TIRA search API
+
+---
+
+## API Test Results Summary
+
+| Search Term | Products Found | Recommendation |
+|-------------|----------------|----------------|
+| makeup | 20,137 | ✅ Top pick |
+| lipstick | 5,593 | ✅ Top pick |
+| skincare | 4,580 | ✅ Top pick |
+| nail polish | 3,828 | ✅ Top pick |
+| moisturizer | 2,812 | ✅ Top pick |
+| fragrance | 2,016 | ✅ Top pick |
+| face wash | 1,696 | ✅ Good |
+| serum | 1,510 | ✅ Good |
+| eyeshadow | 1,279 | ✅ Good |
+| body lotion | 925 | ✅ Good |
+| concealer | 887 | ✅ Good |
+| eyeliner | 853 | ✅ Good |
+| blush | 846 | ✅ Good |
+| makeup brush | 783 | ✅ Good |
+| lip gloss | 746 | ✅ Good |
+| sunscreen | 439 | ✅ Decent |
+| mascara | 262 | ✅ Decent |
+| hair oil | 181 | ⚠️ Limited |
+| face mask | 26 | ❌ Too few |
+| foundation | 0 | ❌ No results |
+| perfume | 0 | ❌ No results |
+| shampoo | 0 | ❌ No results |
+
+---
+
+## 🏆 Recommended 6 Categories for App
+
+| # | Category | Search Query | Products | Icon Suggestion |
+|---|----------|--------------|----------|-----------------|
+| 1 | **Lips** | `lipstick` | 5,593 | 💄 |
+| 2 | **Skincare** | `skincare` | 4,580 | ✨ |
+| 3 | **Nails** | `nail polish` | 3,828 | 💅 |
+| 4 | **Moisturizers** | `moisturizer` | 2,812 | 🧴 |
+| 5 | **Fragrance** | `fragrance` | 2,016 | 🌸 |
+| 6 | **Eyes** | `eyeshadow` | 1,279 | 👁️ |
+
+### Why These Categories?
+
+1. **Lips (5,593)** - Highest engagement category in beauty apps, diverse price range (₹65-₹2,550)
+2. **Skincare (4,580)** - Growing segment, includes serums, creams, and treatments
+3. **Nails (3,828)** - High volume, affordable entry point (₹65-₹500)
+4. **Moisturizers (2,812)** - Essential daily use products, broad appeal
+5. **Fragrance (2,016)** - Premium category with good margins, gift-friendly
+6. **Eyes (1,279)** - Complementary to lips, completes makeup routine
+
+---
+
+## 📦 20 Featured Product Slugs
+
+Use these for the "Featured Products" or "Trending" section at the top of your app.
+
+### Lips (4 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 1 | Matte Lipstick - High Heels | Insight Cosmetics | ₹250 | `insight-cosmetics-matte-lipstick---high-heels-42g-iyr8yea_ajdt` |
+| 2 | Glitter Switch Liquid Lipstick | Lottie London | ₹500 | `lottie-london-glitter-switch-glitter-release-liquid-lipstick---killin-it-3ml-vtbdpfcef5v` |
+| 3 | Liquid Lip Color - Orchid Fantasy | Elle 18 | ₹500 | `elle18-liquid-lip-color---orchid-fantasy-56ml-xbtzeu-rh2g` |
+| 4 | Milano Red LS - Cherry Pop | Deborah Milano | ₹500 | `deborah-milano-milano-red-ls---09-cherry-pop-kimono-gpwdecvigzhnl` |
+
+### Skincare (4 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 5 | Serum High Hydration | Belora Paris | ₹500 | `belora-paris-serum-high-hydration---serum-haute-hydratation-20ml-htzpd1kh6fv` |
+| 6 | Vitamin C Foaming Face Wash | WOW Skin Science | ₹399 | `wow-skin-science-brightening-vitamin-c-foaming-face-wash-refill-pack-200ml-zrwl_wutrozn` |
+| 7 | Jeju Volcanic Night Cream | Prolixr | ₹500 | `prolixr-jeju-volcanic-night-cream-50g-lpwm7w5q3h0` |
+| 8 | Acne Check Face Wash | Ozone | ₹250 | `ozone-acne-check-face-wash-100ml-ogokfxmoxpsb` |
+
+### Nails (3 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 9 | Pastel Color Nail Polish | Insight Cosmetics | ₹65 | `insight-cosmetics-pastel-color-nail-polish---32-shade-9ml-ykpisscxhvh2` |
+| 10 | Gel Finish Nail Lacquer | MyGlamm | ₹295 | `myglamm-manish-malhotra-gel-finish-nail-lacquer---ballerina-blush-10ml-aiu3q7-agx9i` |
+| 11 | One Stroke Premium Nail Enamel | Jaquline USA | ₹199 | `jaquline-usa-one-stroke-premium-nail-enamel---j56-maroon-martini-8ml-eoxbdhqu7x8` |
+
+### Eyes (3 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 12 | So Fierce Mascara | Revlon | ₹1,095 | `revlon-so-fierce-mascara---blackest-black-75ml-5hote29uxp6` |
+| 13 | Colorkick Eyeliner | Lotus | ₹375 | `lotus-makeup-colorkick-eyeliner---cl04-smoky-affair-35ml-t0g_pntcrhim` |
+| 14 | Velvet Touch Eyeshadow Palette | Sivanna | ₹1,799 | `sivanna-colors-velvet-touch-eyeshadow-palette---02-shade-20g-glorqtrc5zgf` |
+
+### Fragrance (3 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 15 | Tommy Hilfiger Holiday Set | Tommy Hilfiger | ₹4,000 | `tommy-hilfiger-new-holiday-set--eau-de-toilette-deo-2-pcs-xocb205hbfne` |
+| 16 | Love Generation Rock EDP | Jeanne Arthes | ₹1,590 | `jeanne-arthes-love-generation-rock-eau-de-parfum-60ml-rseb8wcpjdst` |
+| 17 | Wisal Dhahab EDP Set | Ajmal | ₹3,100 | `ajmal-wisal-dhahab-eau-de-parfum-fruity-floral-perfume-and-silver-shade-homme-deodorant-citrus-woody-fragrance---2pcs-refloqpplqxh` |
+
+### Face (3 products)
+| # | Product | Brand | Price | Slug |
+|---|---------|-------|-------|------|
+| 18 | Born This Way Concealer | Too Faced | ₹2,350 | `too-faced-born-this-way-super-coverage-concealer---porcelain-135ml-yq1we-mkh8vs` |
+| 19 | Studio Fix Concealer | M.A.C | ₹500 | `mac-studio-fix-24-hour-smooth-wear-concealer---nc42-7ml-4kwwold_8ovt` |
+| 20 | Rainbow Baked Blush | Sivanna | ₹500 | `sivanna-colors-rainbow-baked-blush---05-shade-20g-yc00mcghnwy` |
+
+---
+
+## 🔧 Quick Copy: Slugs Array
+
+```javascript
+const featuredSlugs = [
+  // Lips
+  "insight-cosmetics-matte-lipstick---high-heels-42g-iyr8yea_ajdt",
+  "lottie-london-glitter-switch-glitter-release-liquid-lipstick---killin-it-3ml-vtbdpfcef5v",
+  "elle18-liquid-lip-color---orchid-fantasy-56ml-xbtzeu-rh2g",
+  "deborah-milano-milano-red-ls---09-cherry-pop-kimono-gpwdecvigzhnl",
+  
+  // Skincare
+  "belora-paris-serum-high-hydration---serum-haute-hydratation-20ml-htzpd1kh6fv",
+  "wow-skin-science-brightening-vitamin-c-foaming-face-wash-refill-pack-200ml-zrwl_wutrozn",
+  "prolixr-jeju-volcanic-night-cream-50g-lpwm7w5q3h0",
+  "ozone-acne-check-face-wash-100ml-ogokfxmoxpsb",
+  
+  // Nails
+  "insight-cosmetics-pastel-color-nail-polish---32-shade-9ml-ykpisscxhvh2",
+  "myglamm-manish-malhotra-gel-finish-nail-lacquer---ballerina-blush-10ml-aiu3q7-agx9i",
+  "jaquline-usa-one-stroke-premium-nail-enamel---j56-maroon-martini-8ml-eoxbdhqu7x8",
+  
+  // Eyes
+  "revlon-so-fierce-mascara---blackest-black-75ml-5hote29uxp6",
+  "lotus-makeup-colorkick-eyeliner---cl04-smoky-affair-35ml-t0g_pntcrhim",
+  "sivanna-colors-velvet-touch-eyeshadow-palette---02-shade-20g-glorqtrc5zgf",
+  
+  // Fragrance
+  "tommy-hilfiger-new-holiday-set--eau-de-toilette-deo-2-pcs-xocb205hbfne",
+  "jeanne-arthes-love-generation-rock-eau-de-parfum-60ml-rseb8wcpjdst",
+  "ajmal-wisal-dhahab-eau-de-parfum-fruity-floral-perfume-and-silver-shade-homme-deodorant-citrus-woody-fragrance---2pcs-refloqpplqxh",
+  
+  // Face
+  "too-faced-born-this-way-super-coverage-concealer---porcelain-135ml-yq1we-mkh8vs",
+  "mac-studio-fix-24-hour-smooth-wear-concealer---nc42-7ml-4kwwold_8ovt",
+  "sivanna-colors-rainbow-baked-blush---05-shade-20g-yc00mcghnwy"
+];
+```
+
+---
+
+## 🔧 Quick Copy: Categories Config
+
+```javascript
+const categories = [
+  { name: "Lips", query: "lipstick", icon: "💄", productCount: 5593 },
+  { name: "Skincare", query: "skincare", icon: "✨", productCount: 4580 },
+  { name: "Nails", query: "nail polish", icon: "💅", productCount: 3828 },
+  { name: "Moisturizers", query: "moisturizer", icon: "🧴", productCount: 2812 },
+  { name: "Fragrance", query: "fragrance", icon: "🌸", productCount: 2016 },
+  { name: "Eyes", query: "eyeshadow", icon: "👁️", productCount: 1279 }
+];
+```
+
+---
+
+## ⚠️ Search Terms to Avoid
+
+These return **0 results** - don't use as categories:
+- `foundation`
+- `perfume` (use `fragrance` instead)
+- `shampoo`
+- `conditioner`
+
+---
+
+## 💡 Pro Tips
+
+1. **Price Range Strategy**: Featured products cover ₹65 to ₹4,000 to appeal to all budgets
+2. **Brand Mix**: Includes budget (Insight, Elle18), mid-range (Lotus, MyGlamm), and premium (M.A.C, Too Faced)
+3. **Discounted Products**: Some have discounts (15-40% off) - great for promotions
+4. **Use Slugs for PDP**: Call `tira_get_product_by_slug` with these slugs for full product details
+
+---
+
+*Generated from live API testing on Dec 13, 2025*
