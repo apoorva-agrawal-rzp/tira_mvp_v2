@@ -3,32 +3,26 @@ import { useLocation } from 'wouter';
 import { useMCP } from '@/hooks/use-mcp';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { ProductImage } from '@/components/product-image';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, Droplets, PaintBucket, Droplet, Flower2, Eye, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Product } from '@shared/schema';
-
-import lipstickImg from '@assets/generated_images/lipstick_product_image.png';
-import serumImg from '@assets/generated_images/serum_skincare_product.png';
-import perfumeImg from '@assets/generated_images/perfume_fragrance_bottle.png';
-import hairImg from '@assets/generated_images/hair_care_product.png';
-import eyeshadowImg from '@assets/generated_images/makeup_eyeshadow_palette.png';
-import lotionImg from '@assets/generated_images/body_lotion_product.png';
 
 interface Category {
   id: string;
   name: string;
-  image: string;
+  icon: LucideIcon;
   query: string;
   color: string;
+  productCount: string;
 }
 
 const categories: Category[] = [
-  { id: 'makeup', name: 'Makeup', image: eyeshadowImg, query: 'makeup lipstick foundation', color: 'bg-pink-100 dark:bg-pink-900/30' },
-  { id: 'skincare', name: 'Skincare', image: serumImg, query: 'skincare serum cream', color: 'bg-purple-100 dark:bg-purple-900/30' },
-  { id: 'hair', name: 'Hair Care', image: hairImg, query: 'shampoo hair conditioner', color: 'bg-blue-100 dark:bg-blue-900/30' },
-  { id: 'fragrance', name: 'Fragrance', image: perfumeImg, query: 'perfume fragrance cologne', color: 'bg-amber-100 dark:bg-amber-900/30' },
-  { id: 'bath', name: 'Bath & Body', image: lotionImg, query: 'body lotion shower gel', color: 'bg-teal-100 dark:bg-teal-900/30' },
-  { id: 'lips', name: 'Lips', image: lipstickImg, query: 'lipstick lip gloss', color: 'bg-rose-100 dark:bg-rose-900/30' },
+  { id: 'lips', name: 'Lips', icon: Sparkles, query: 'lipstick', color: 'bg-pink-100 dark:bg-pink-900/30', productCount: '5593' },
+  { id: 'skincare', name: 'Skincare', icon: Droplets, query: 'skincare', color: 'bg-purple-100 dark:bg-purple-900/30', productCount: '4580' },
+  { id: 'nails', name: 'Nails', icon: PaintBucket, query: 'nail polish', color: 'bg-rose-100 dark:bg-rose-900/30', productCount: '3828' },
+  { id: 'moisturizers', name: 'Moisturizers', icon: Droplet, query: 'moisturizer', color: 'bg-teal-100 dark:bg-teal-900/30', productCount: '2812' },
+  { id: 'fragrance', name: 'Fragrance', icon: Flower2, query: 'fragrance', color: 'bg-amber-100 dark:bg-amber-900/30', productCount: '2016' },
+  { id: 'eyes', name: 'Eyes', icon: Eye, query: 'eyeshadow', color: 'bg-blue-100 dark:bg-blue-900/30', productCount: '1279' },
 ];
 
 interface CategoryPreviewProps {
@@ -156,14 +150,11 @@ export function InteractiveCategoryGrid() {
               )}
               data-testid={`category-${cat.id}`}
             >
-              <div className="w-14 h-14 rounded-xl overflow-hidden mx-auto mb-2 bg-background/50">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-contain"
-                />
+              <div className="w-14 h-14 rounded-xl mx-auto mb-2 bg-background/50 flex items-center justify-center">
+                <cat.icon className="w-7 h-7 text-foreground" />
               </div>
               <span className="text-sm font-medium">{cat.name}</span>
+              <span className="text-xs text-muted-foreground">{cat.productCount}+ items</span>
             </button>
           );
         })}

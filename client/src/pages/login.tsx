@@ -67,10 +67,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <div className="p-4">
-        <HeroBannerCarousel compact />
-      </div>
-
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <TiraLogoFull className="mb-6" />
         
@@ -111,6 +107,10 @@ export default function LoginPage() {
             )}
           </Button>
         </div>
+      </div>
+
+      <div className="p-4">
+        <HeroBannerCarousel compact />
       </div>
 
       <p className="text-center text-muted-foreground text-xs p-4">
