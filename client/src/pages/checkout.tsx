@@ -15,6 +15,10 @@ import {
   CheckCircle2,
   Plus,
   Loader2,
+  Banknote,
+  Smartphone,
+  Building2,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -37,6 +41,22 @@ interface Address {
   is_default_address?: boolean;
 }
 
+type PaymentMethod = 'COD' | 'UPI' | 'CARD' | 'NB';
+
+interface PaymentOption {
+  id: PaymentMethod;
+  name: string;
+  description: string;
+  icon: typeof CreditCard;
+}
+
+const paymentOptions: PaymentOption[] = [
+  { id: 'UPI', name: 'UPI', description: 'Pay using any UPI app', icon: Smartphone },
+  { id: 'CARD', name: 'Credit/Debit Card', description: 'Visa, Mastercard, RuPay', icon: CreditCard },
+  { id: 'NB', name: 'Net Banking', description: 'All major banks supported', icon: Building2 },
+  { id: 'COD', name: 'Cash on Delivery', description: 'Pay when your order arrives', icon: Banknote },
+];
+
 export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -44,6 +64,7 @@ export default function CheckoutPage() {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [showAddressDrawer, setShowAddressDrawer] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'address' | 'payment' | 'processing' | 'success'>('address');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('COD');
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { session, user, cart, clearCart } = useAppStore();
@@ -78,16 +99,43 @@ export default function CheckoutPage() {
   const fetchAddresses = async () => {
     setLoading(true);
     try {
-      const result = await invoke<{ address?: Address[] }>('get_address', {
+      const result = await invoke<{ 
+        addresses?: Array<Record<string, unknown>>; 
+        address?: Array<Record<string, unknown>>;
+        saved_addresses?: Array<Record<string, unknown>>;
+      }>('get_address', {
         cookies: session,
       });
 
-      if (result?.address && Array.isArray(result.address)) {
-        setAddresses(result.address);
-        const defaultAddr = result.address.find((a) => a.is_default_address) || result.address[0];
-        if (defaultAddr) {
-          setSelectedAddress(defaultAddr);
-        }
+      // Handle nested response structure like addresses.tsx
+      let addressList: Array<Record<string, unknown>> = [];
+      if (result.addresses && Array.isArray(result.addresses)) {
+        addressList = result.addresses;
+      } else if (result.addresses && typeof result.addresses === 'object' && 'address' in result.addresses) {
+        addressList = (result.addresses as { address: Array<Record<string, unknown>> }).address || [];
+      } else if (result.address && Array.isArray(result.address)) {
+        addressList = result.address;
+      } else if (result.saved_addresses && Array.isArray(result.saved_addresses)) {
+        addressList = result.saved_addresses;
+      }
+
+      const mappedAddresses: Address[] = addressList.map((a: Record<string, unknown>, idx: number) => ({
+        id: String(a.id || a._id || a.uid || `addr-${idx}`),
+        uid: a.uid as number | undefined,
+        name: (a.name as string) || '',
+        phone: ((a.phone || a.mobile) as string) || '',
+        address: ((a.address || a.address_line || a.street) as string) || '',
+        area: ((a.area || a.locality || a.landmark) as string) || '',
+        city: (a.city as string) || '',
+        state: (a.state as string) || '',
+        area_code: String(a.pincode || a.area_code || a.zip || ''),
+        is_default_address: (a.is_default_address || a.isDefault || a.default) as boolean | undefined,
+      }));
+
+      setAddresses(mappedAddresses);
+      const defaultAddr = mappedAddresses.find((a) => a.is_default_address) || mappedAddresses[0];
+      if (defaultAddr) {
+        setSelectedAddress(defaultAddr);
       }
     } catch (err) {
       console.error('Failed to fetch addresses:', err);
@@ -141,7 +189,7 @@ export default function CheckoutPage() {
         }
       }
 
-      // Create checkout with COD (Cash on Delivery)
+      // Create checkout with selected payment method
       const checkoutResult = await invoke<{ 
         success?: boolean;
         order_id?: string;
@@ -151,8 +199,8 @@ export default function CheckoutPage() {
         cartId,
         addressId: selectedAddress.id,
         sessionCookie: session,
-        paymentMode: 'COD',
-        codConfirmed: true,
+        paymentMode: selectedPaymentMethod,
+        codConfirmed: selectedPaymentMethod === 'COD',
       });
 
       if (checkoutResult?.success || checkoutResult?.order_id) {
@@ -293,9 +341,38 @@ export default function CheckoutPage() {
             <CreditCard className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">Payment Method</h3>
           </div>
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="font-medium">Cash on Delivery</p>
-            <p className="text-sm text-muted-foreground">Pay when your order arrives</p>
+          <div className="space-y-2">
+            {paymentOptions.map((option) => {
+              const Icon = option.icon;
+              const isSelected = selectedPaymentMethod === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setSelectedPaymentMethod(option.id)}
+                  className={cn(
+                    'w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left',
+                    isSelected
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover-elevate'
+                  )}
+                  data-testid={`payment-option-${option.id}`}
+                >
+                  <div className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                    isSelected ? 'bg-primary/10' : 'bg-muted'
+                  )}>
+                    <Icon className={cn('w-5 h-5', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{option.name}</p>
+                    <p className="text-sm text-muted-foreground">{option.description}</p>
+                  </div>
+                  {isSelected && (
+                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </Card>
 
