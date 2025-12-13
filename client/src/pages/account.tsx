@@ -18,7 +18,8 @@ import {
   Settings,
   HelpCircle,
   Shield,
-  ShoppingBag
+  ShoppingBag,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -239,6 +240,13 @@ export default function AccountPage() {
             label="Admin Panel"
             description="Manage price bids"
             onClick={() => setLocation('/admin')}
+          />
+          <div className="border-t border-border" />
+          <MenuItem
+            icon={Activity}
+            label="Price Monitors"
+            description="View active monitors"
+            onClick={() => setLocation('/monitors')}
           />
         </Card>
 

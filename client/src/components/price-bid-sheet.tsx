@@ -153,6 +153,15 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
           state?: string;
           pincode?: string;
           phone?: string;
+          isDefault?: boolean;
+        };
+        totalAddresses?: number;
+        bidDetails?: {
+          id?: string;
+          productName?: string;
+          purchasePrice?: number;
+          bidPrice?: number;
+          potentialSavings?: number;
         };
         bid?: {
           id?: string;
@@ -178,6 +187,8 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
           id?: string;
         };
         message?: string;
+        nextSteps?: string[];
+        warning?: string;
       }>('tira_price_bidding', {
         productSlug: product.slug,
         productName: product.name,
@@ -195,29 +206,66 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       });
 
       // Handle address confirmation automatically
-      if (result?.status === 'address_confirmation_required') {
-        // Show address to user briefly
+      // Check both result.status and !result.success with status field
+      const needsAddressConfirmation = 
+        result?.status === 'address_confirmation_required' ||
+        (!result?.success && result?.status === 'address_confirmation_required');
+
+      if (needsAddressConfirmation) {
+        console.log('[PriceBid] Address confirmation required:', result);
+        
+        // Show address to user
         if (result.address) {
-          setLoadingMessage(`Confirming address: ${result.address.city}`);
+          const addressText = `${result.address.name}, ${result.address.area ? result.address.area + ', ' : ''}${result.address.city}`;
+          setLoadingMessage(`Confirming: ${result.address.city}`);
+          
           toast({
-            title: '📍 Using delivery address',
-            description: `${result.address.name}, ${result.address.city}`,
+            title: '📍 Delivery Address Found',
+            description: addressText,
+            duration: 2000,
+          });
+        }
+
+        // Show bid details if available
+        if (result.bidDetails) {
+          console.log('[PriceBid] Bid Details:', {
+            product: result.bidDetails.productName,
+            currentPrice: result.bidDetails.purchasePrice,
+            bidPrice: result.bidDetails.bidPrice,
+            savings: result.bidDetails.potentialSavings
           });
         }
 
         // Wait a moment for user to see the address
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Retry with addressConfirmed: true
-        setLoadingMessage('Setting up automatic purchase...');
+        setLoadingMessage('Confirming address & creating bid...');
         toast({
-          title: '⏳ Creating price bid...',
-          description: 'Setting up automatic purchase',
+          title: '✅ Address Confirmed',
+          description: 'Setting up price bidding...',
+          duration: 1500,
         });
 
         result = await invoke<{
           success?: boolean;
           status?: string;
+          address?: {
+            name?: string;
+            address?: string;
+            area?: string;
+            city?: string;
+            state?: string;
+            pincode?: string;
+            phone?: string;
+          };
+          bidDetails?: {
+            id?: string;
+            productName?: string;
+            purchasePrice?: number;
+            bidPrice?: number;
+            potentialSavings?: number;
+          };
           bid?: {
             id?: string;
             productName?: string;
@@ -263,7 +311,18 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
 
       // Store tool response for display
       setToolResponse(result);
-      console.log('[PriceBid] Result:', result);
+      console.log('[PriceBid] Final Result:', result);
+
+      // Check if still asking for address confirmation after retry
+      if (result?.status === 'address_confirmation_required') {
+        console.error('[PriceBid] Address confirmation still required after retry!');
+        toast({
+          title: '⚠️ Address Confirmation Issue',
+          description: 'Unable to confirm address. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // Check for specific errors and handle them
       if (!result?.success) {

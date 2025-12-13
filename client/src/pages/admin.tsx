@@ -143,6 +143,13 @@ export default function AdminPage() {
     setActiveBids(bids.filter(b => b.status === 'monitoring' || b.status === 'active'));
   }, [bids]);
 
+  // Initial fetch on mount
+  useEffect(() => {
+    if (phone && activeTab === 'bids') {
+      fetchBids();
+    }
+  }, []);
+
   const addLog = (message: string, type: LogEntry['type'] = 'info') => {
     const time = new Date().toLocaleTimeString('en-US', { 
       hour12: false, 
@@ -154,19 +161,34 @@ export default function AdminPage() {
   };
 
   const fetchBids = async () => {
+    console.log('[Admin] fetchBids called, phone:', phone);
+    
     if (!phone) {
-      addLog('User phone number not found. Please login again.', 'error');
+      addLog('❌ User phone number not found. Please login again.', 'error');
       return;
     }
 
     setLoading(true);
-    addLog(`Fetching active bids for user: ${phone}...`);
+    addLog(`💰 Fetching active bids for user: ${phone}...`);
     
     try {
-      const result = await invoke<{ bids?: Array<Record<string, unknown>> }>('tira_list_price_bids', {
+      console.log('[Admin] Calling tira_list_price_bids with userId:', phone);
+      
+      const result = await invoke<{ 
+        bids?: Array<Record<string, unknown>>;
+        success?: boolean;
+        error?: string;
+      }>('tira_list_price_bids', {
         userId: phone,
         includeCompleted: true,
       });
+
+      console.log('[Admin] Bids result:', result);
+
+      if (result.error) {
+        addLog(`❌ API Error: ${result.error}`, 'error');
+        return;
+      }
 
       const mappedBids: PriceBid[] = (result.bids || []).map((b: Record<string, unknown>) => ({
         id: (b.id || b.bidId || String(Date.now())) as string,
@@ -187,48 +209,81 @@ export default function AdminPage() {
       }));
 
       setActiveBids(mappedBids.filter(b => b.status === 'monitoring' || b.status === 'active'));
-      addLog(`Found ${mappedBids.length} total bids (${mappedBids.filter(b => b.status === 'monitoring' || b.status === 'active').length} active)`, 'success');
+      addLog(`✅ Found ${mappedBids.length} total bids (${mappedBids.filter(b => b.status === 'monitoring' || b.status === 'active').length} active)`, 'success');
     } catch (err) {
-      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      console.error('[Admin] fetchBids error:', err);
+      addLog(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchMonitors = async () => {
+    console.log('[Admin] fetchMonitors called, phone:', phone);
+    
     if (!phone) {
-      addLog('User phone number not found. Please login again.', 'error');
+      addLog('❌ User phone number not found. Please login again.', 'error');
       return;
     }
 
     setLoading(true);
-    addLog(`Fetching price monitors for user: ${phone}...`);
+    addLog(`📡 Fetching price monitors for user: ${phone}...`);
     
     try {
-      const result = await invoke<{ monitors?: Array<Record<string, unknown>> }>('tira_list_price_monitors', {
+      console.log('[Admin] Calling tira_list_price_monitors with userId:', phone);
+      
+      const result = await invoke<{ 
+        monitors?: Array<Record<string, unknown>>;
+        success?: boolean;
+        error?: string;
+      }>('tira_list_price_monitors', {
         userId: phone,
         includeInactive: true,
       });
 
-      setMonitors(result.monitors || []);
-      addLog(`Found ${result.monitors?.length || 0} monitors`, 'success');
+      console.log('[Admin] Monitor result:', result);
+
+      if (result.error) {
+        addLog(`❌ API Error: ${result.error}`, 'error');
+      } else {
+        setMonitors(result.monitors || []);
+        addLog(`✅ Found ${result.monitors?.length || 0} monitors`, 'success');
+      }
     } catch (err) {
-      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      console.error('[Admin] fetchMonitors error:', err);
+      addLog(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const fetchMonitorStats = async () => {
+    console.log('[Admin] fetchMonitorStats called');
+    
     setLoading(true);
-    addLog('Fetching monitor statistics...');
+    addLog('📊 Fetching monitor statistics...');
     
     try {
-      const result = await invoke('tira_get_monitor_stats');
-      setMonitorStats(result);
-      addLog('Monitor stats fetched successfully', 'success');
+      console.log('[Admin] Calling tira_get_monitor_stats');
+      
+      const result = await invoke<{
+        success?: boolean;
+        error?: string;
+        monitorStats?: any;
+        serviceStatus?: any;
+      }>('tira_get_monitor_stats');
+      
+      console.log('[Admin] Stats result:', result);
+
+      if (result.error) {
+        addLog(`❌ API Error: ${result.error}`, 'error');
+      } else {
+        setMonitorStats(result);
+        addLog('✅ Monitor stats fetched successfully', 'success');
+      }
     } catch (err) {
-      addLog(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      console.error('[Admin] fetchMonitorStats error:', err);
+      addLog(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
       setLoading(false);
     }

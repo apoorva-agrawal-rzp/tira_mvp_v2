@@ -18,6 +18,7 @@ import AccountPage from "@/pages/account";
 import PaymentMethodsPage from "@/pages/payment-methods";
 import AddressesPage from "@/pages/addresses";
 import AdminPage from "@/pages/admin";
+import MonitorsPage from "@/pages/monitors";
 import BagPage from "@/pages/cart";
 import NotFound from "@/pages/not-found";
 
@@ -75,6 +76,11 @@ function Router() {
       <Route path="/admin">
         <ProtectedRoute>
           <AdminPage />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/monitors">
+        <ProtectedRoute>
+          <MonitorsPage />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
