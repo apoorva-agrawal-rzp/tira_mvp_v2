@@ -18,7 +18,6 @@ import {
   Heart, 
   Share2, 
   ShoppingBag,
-  ShoppingCart,
   Zap, 
   Truck, 
   RefreshCw,
@@ -302,11 +301,11 @@ export default function ProductDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation('/account/cart')}
+            onClick={() => setLocation('/account/bag')}
             className="relative"
-            data-testid="button-cart-header"
+            data-testid="button-bag-header"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingBag className="w-5 h-5" />
             {cart.length > 0 && (
               <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
                 {cart.length > 9 ? '9+' : cart.length}
