@@ -1,6 +1,6 @@
 import { useLocation } from 'wouter';
 import type { PriceBid } from '@shared/schema';
-import { RefreshCw, CheckCircle2, Trash2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Trash2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,10 +9,11 @@ import { ProductImage } from '@/components/product-image';
 interface BidCardProps {
   bid: PriceBid;
   onRemove?: () => void;
+  onViewHistory?: () => void;
   completed?: boolean;
 }
 
-export function BidCard({ bid, onRemove, completed }: BidCardProps) {
+export function BidCard({ bid, onRemove, onViewHistory, completed }: BidCardProps) {
   const [, setLocation] = useLocation();
   const savings = bid.currentPrice - bid.bidPrice;
 
@@ -83,17 +84,34 @@ export function BidCard({ bid, onRemove, completed }: BidCardProps) {
         </div>
       </div>
 
-      {!completed && onRemove && (
+      {!completed && (onRemove || onViewHistory) && (
         <div className="border-t border-border">
-          <Button
-            variant="ghost"
-            onClick={onRemove}
-            className="w-full rounded-none text-destructive"
-            data-testid={`remove-bid-${bid.id}`}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Remove from Wishlist
-          </Button>
+          <div className={cn(
+            "grid",
+            onRemove && onViewHistory && bid.monitorId ? "grid-cols-2 divide-x divide-border" : "grid-cols-1"
+          )}>
+            {onViewHistory && bid.monitorId && (
+              <Button
+                variant="ghost"
+                onClick={onViewHistory}
+                className="rounded-none text-primary hover:bg-primary/10"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                View History
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                variant="ghost"
+                onClick={onRemove}
+                className="w-full rounded-none text-destructive hover:bg-destructive/10"
+                data-testid={`remove-bid-${bid.id}`}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remove
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </Card>

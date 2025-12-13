@@ -11,12 +11,33 @@ import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import type { PriceBid } from '@shared/schema';
-import { Heart, Search, Zap, TrendingDown, Package, RefreshCw, CheckCircle } from 'lucide-react';
+import { Heart, Search, Zap, TrendingDown, Package, RefreshCw, CheckCircle, Eye, Clock, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface PriceHistoryEntry {
+  timestamp: string;
+  price: number;
+  priceChange: number;
+  inStock: boolean;
+}
+
+interface PriceHistory {
+  success: boolean;
+  history: PriceHistoryEntry[];
+  statistics: {
+    totalChecks: number;
+    lowestPrice: number;
+    highestPrice: number;
+    totalPriceChanges: number;
+  };
+}
 
 export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedBid, setSelectedBid] = useState<PriceBid | null>(null);
+  const [priceHistory, setPriceHistory] = useState<PriceHistory | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [, setLocation] = useLocation();
   const { invoke } = useMCP();
   const { user, bids, setBids, removeBid } = useAppStore();
@@ -138,6 +159,44 @@ export default function WishlistPage() {
     }
   };
 
+  const fetchPriceHistory = async (bid: PriceBid) => {
+    if (!bid.monitorId) {
+      toast({
+        title: 'No Price History',
+        description: 'This bid does not have active monitoring',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLoadingHistory(true);
+    setSelectedBid(bid);
+    
+    try {
+      const result = await invoke<PriceHistory>('tira_get_price_history', {
+        monitorId: bid.monitorId,
+        limit: 50,
+      });
+
+      setPriceHistory(result);
+    } catch (err) {
+      console.error('Failed to fetch price history:', err);
+      toast({
+        title: 'Failed to load history',
+        description: 'Could not fetch price history',
+        variant: 'destructive',
+      });
+      setPriceHistory(null);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const closePriceHistory = () => {
+    setSelectedBid(null);
+    setPriceHistory(null);
+  };
+
   const activeBids = bids.filter((b) => b.status === 'monitoring' || b.status === 'active');
   const completedBids = bids.filter((b) => b.status === 'completed');
   const totalSavings = completedBids.reduce((sum, bid) => sum + (bid.currentPrice - bid.bidPrice), 0);
@@ -195,6 +254,99 @@ export default function WishlistPage() {
       </header>
 
       <div className="flex-1 pb-20">
+        {/* Price History Modal */}
+        {selectedBid && priceHistory && (
+          <div className="p-4">
+            <Card className="p-4 bg-gradient-to-br from-primary/5 to-purple/5 border-primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-100 flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-primary" />
+                  Price History
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={closePriceHistory}
+                  className="text-gray-400 hover:bg-gray-800"
+                >
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-3 truncate">{selectedBid.product.name}</p>
+
+              {/* Stats Grid */}
+              {priceHistory.statistics && (
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Total Checks</div>
+                    <div className="text-lg font-bold text-gray-100">
+                      {priceHistory.statistics.totalChecks}
+                    </div>
+                  </div>
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Lowest</div>
+                    <div className="text-lg font-bold text-green-400">
+                      ₹{priceHistory.statistics.lowestPrice}
+                    </div>
+                  </div>
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Highest</div>
+                    <div className="text-lg font-bold text-red-400">
+                      ₹{priceHistory.statistics.highestPrice}
+                    </div>
+                  </div>
+                  <div className="bg-background/50 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Changes</div>
+                    <div className="text-lg font-bold text-blue-400">
+                      {priceHistory.statistics.totalPriceChanges}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* History List */}
+              <div className="max-h-64 overflow-auto space-y-2">
+                {priceHistory.history && priceHistory.history.length > 0 ? (
+                  priceHistory.history.map((entry, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center justify-between py-2 px-3 bg-background/30 rounded-lg"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="font-semibold text-gray-100">₹{entry.price}</span>
+                        {entry.priceChange !== 0 && (
+                          <span className={cn(
+                            'text-xs',
+                            entry.priceChange > 0 ? 'text-red-400' : 'text-green-400'
+                          )}>
+                            {entry.priceChange > 0 ? '+' : ''}{entry.priceChange}
+                          </span>
+                        )}
+                        {entry.inStock ? (
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-400" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No price history available yet
+                  </p>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
         {activeBids.length === 0 && completedBids.length === 0 ? (
           <div className="text-center py-16 px-4">
             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-100 to-rose-100 dark:from-pink-950/30 dark:to-rose-950/30 flex items-center justify-center mx-auto mb-6 relative">
@@ -284,6 +436,7 @@ export default function WishlistPage() {
                         key={bid.id}
                         bid={bid}
                         onRemove={() => handleRemoveBid(bid)}
+                        onViewHistory={() => fetchPriceHistory(bid)}
                       />
                     ))}
                   </div>
