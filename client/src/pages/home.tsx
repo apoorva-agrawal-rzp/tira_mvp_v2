@@ -4,8 +4,8 @@ import { TiraLogo } from '@/components/tira-logo';
 import { BottomNav } from '@/components/bottom-nav';
 import { ProductCard, ProductCardSkeleton } from '@/components/product-card';
 import { HeroBannerCarousel } from '@/components/hero-banner-carousel';
-import { ProductImageCarousel } from '@/components/product-image-carousel';
 import { InteractiveCategoryGrid } from '@/components/interactive-category-grid';
+import { TopBrandsSection } from '@/components/top-brands-section';
 import { Button } from '@/components/ui/button';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
@@ -39,9 +39,7 @@ const FEATURED_SLUGS = [
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
-  const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
@@ -73,25 +71,7 @@ export default function HomePage() {
       }
     };
 
-    const fetchTrending = async () => {
-      try {
-        const result = await invoke<unknown>('get_products', {
-          query: 'bestseller lipstick',
-          limit: 10,
-        });
-
-        const products = parseMCPProductResponse(result);
-        cacheProducts(products);
-        setTrendingProducts(products);
-      } catch (err) {
-        console.error('Failed to fetch trending:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchFeatured();
-    fetchTrending();
   }, []);
 
   useEffect(() => {
@@ -216,38 +196,9 @@ export default function HomePage() {
           )}
         </section>
 
-        <ProductImageCarousel />
-
         <InteractiveCategoryGrid />
 
-        <section>
-          <div className="flex items-center justify-between mb-4 gap-2">
-            <h3 className="font-bold text-lg">Trending Now</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation('/search?q=bestseller')}
-              className="text-primary"
-            >
-              View All
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-          
-          {loading ? (
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-              {[1, 2, 3, 4].map((i) => (
-                <ProductCardSkeleton key={i} compact />
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-              {trendingProducts.map((product) => (
-                <ProductCard key={product.slug} product={product} compact />
-              ))}
-            </div>
-          )}
-        </section>
+        <TopBrandsSection />
 
         <section 
           className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-2xl p-5 border border-blue-100 dark:border-blue-900/50"

@@ -1,0 +1,232 @@
+# TIRA App - Top Brands to Feature
+
+> Based on thorough API testing of the TIRA search API for brand availability
+
+---
+
+## API Test Results - Full Brand Analysis
+
+| Brand | Products | Segment | Price Range | Status |
+|-------|----------|---------|-------------|--------|
+| Colorbar | 861 | Mid-Premium | ₹148-₹995 | ✅ Excellent |
+| MyGlamm | 709 | Mid | ₹295-₹595 | ✅ Excellent |
+| Lakme | 653 | Budget-Mid | ₹250-₹550 | ✅ Excellent |
+| PAC | 630 | Mid | ₹500-₹765 | ✅ Excellent |
+| SUGAR Cosmetics | 630 | Mid | ₹249-₹500 | ✅ Excellent |
+| Plum | 587 | Mid | ₹150-₹500 | ✅ Excellent |
+| Makeup Revolution | 574 | Mid | ₹650-₹1950 | ✅ Excellent |
+| Lotus | 506 | Budget-Mid | ₹375-₹525 | ✅ Very Good |
+| Swiss Beauty | 465 | Budget | ₹229-₹379 | ✅ Very Good |
+| Flormar | 437 | Budget-Mid | ₹130-₹500 | ✅ Very Good |
+| Faces Canada | 434 | Mid | ₹75-₹1099 | ✅ Very Good |
+| WOW Skin Science | 344 | Budget-Mid | ₹299-₹500 | ✅ Good |
+| Insight Cosmetics | 319 | Budget | ₹65-₹315 | ✅ Good |
+| Mamaearth | 309 | Mid | ₹299-₹599 | ✅ Good |
+| M.A.C | 295 | Premium | ₹500-₹2700 | ✅ Good |
+| Revlon | 268 | Mid-Premium | ₹225-₹1250 | ✅ Good |
+| Clinique | 216 | Luxury | ₹2100-₹3750 | ✅ Good |
+| Estee Lauder | 215 | Luxury | ₹500-₹3700 | ✅ Good |
+| Maybelline | 215 | Mid | ₹299-₹599 | ✅ Good |
+| Too Faced | 209 | Premium | ₹2250-₹4900 | ✅ Good |
+| mCaffeine | 194 | Mid | ₹449-₹1569 | ✅ Decent |
+| L'Oreal Paris | 184 | Mid-Premium | ₹199-₹900 | ✅ Decent |
+| Innisfree | 178 | Mid-Premium | ₹190-₹500 | ✅ Decent |
+| Biotique | 139 | Budget | ₹100-₹430 | ✅ Decent |
+| Forest Essentials | 132 | Luxury | ₹750-₹1550 | ✅ Decent |
+| Nivea | 58 | Budget | ₹140-₹479 | ⚠️ Limited |
+| Nykaa | 34 | - | - | ❌ Not Available |
+| NYX | 0 | - | - | ❌ No Products |
+| The Body Shop | 18 | - | - | ❌ Too Few |
+
+---
+
+## 🏆 Top 12 Brands to Feature on Home Page
+
+### Tier 1: Hero Brands (Most Products, High Recognition)
+
+| # | Brand | Products | Why Feature | Best For |
+|---|-------|----------|-------------|----------|
+| 1 | **Colorbar** | 861 | Highest inventory, premium quality | Foundation, Nails, Lips |
+| 2 | **MyGlamm** | 709 | Celebrity collabs, trendy | Nail Lacquer, Lip Products |
+| 3 | **Lakme** | 653 | India's #1, trusted | Lipstick, Concealers |
+| 4 | **SUGAR Cosmetics** | 630 | Youth favorite, bold colors | Lipstick, Foundation |
+
+### Tier 2: Strong Performers (Good Inventory, Value)
+
+| # | Brand | Products | Why Feature | Best For |
+|---|-------|----------|-------------|----------|
+| 5 | **PAC** | 630 | Professional quality | Brushes, Concealers |
+| 6 | **Plum** | 587 | Clean beauty, vegan | Skincare, Bodycare |
+| 7 | **Makeup Revolution** | 574 | Trendy palettes, affordable | Eyeshadow Palettes |
+| 8 | **Swiss Beauty** | 465 | Super affordable | Budget Makeup |
+
+### Tier 3: Premium Selections (Aspirational)
+
+| # | Brand | Products | Why Feature | Best For |
+|---|-------|----------|-------------|----------|
+| 9 | **M.A.C** | 295 | Cult favorite, prestige | Lipstick, Foundation |
+| 10 | **Clinique** | 216 | Dermatologist tested | Skincare, Foundation |
+| 11 | **Estee Lauder** | 215 | Luxury icon | Anti-aging, Foundation |
+| 12 | **Mamaearth** | 309 | Natural, toxin-free | Skincare, Haircare |
+
+---
+
+## 📱 Recommended Home Page Layout
+
+### Section 1: "Shop by Brand" Carousel (12 brands)
+
+```
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│ Colorbar│ │ MyGlamm │ │  Lakme  │ │  SUGAR  │
+│  (861)  │ │  (709)  │ │  (653)  │ │  (630)  │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘
+     →  Scroll for more (PAC, Plum, Makeup Rev, Swiss Beauty...)
+```
+
+### Section 2: "Premium Picks" Strip (4 brands)
+
+```
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│  M.A.C  │ │Clinique │ │Est.Laud │ │Too Faced│
+│  (295)  │ │  (216)  │ │  (215)  │ │  (209)  │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘
+```
+
+### Section 3: "Clean & Natural" Strip (4 brands)
+
+```
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│  Plum   │ │Mamaearth│ │  WOW    │ │mCaffeine│
+│  (587)  │ │  (309)  │ │  (344)  │ │  (194)  │
+└─────────┘ └─────────┘ └─────────┘ └─────────┘
+```
+
+---
+
+## 🔧 Quick Copy: Brands Config Array
+
+```javascript
+const featuredBrands = [
+  // Tier 1 - Hero Brands
+  { name: "Colorbar", query: "Colorbar", products: 861, tier: "hero", segment: "mid-premium" },
+  { name: "MyGlamm", query: "MyGlamm", products: 709, tier: "hero", segment: "mid" },
+  { name: "Lakme", query: "Lakme", products: 653, tier: "hero", segment: "budget-mid" },
+  { name: "SUGAR Cosmetics", query: "Sugar Cosmetics", products: 630, tier: "hero", segment: "mid" },
+  
+  // Tier 2 - Strong Performers
+  { name: "PAC", query: "PAC", products: 630, tier: "strong", segment: "mid" },
+  { name: "Plum", query: "Plum", products: 587, tier: "strong", segment: "mid" },
+  { name: "Makeup Revolution", query: "Makeup Revolution", products: 574, tier: "strong", segment: "mid" },
+  { name: "Swiss Beauty", query: "Swiss Beauty", products: 465, tier: "strong", segment: "budget" },
+  
+  // Tier 3 - Premium
+  { name: "M.A.C", query: "MAC", products: 295, tier: "premium", segment: "premium" },
+  { name: "Clinique", query: "Clinique", products: 216, tier: "premium", segment: "luxury" },
+  { name: "Estee Lauder", query: "Estee Lauder", products: 215, tier: "premium", segment: "luxury" },
+  { name: "Mamaearth", query: "Mamaearth", products: 309, tier: "premium", segment: "natural" }
+];
+
+const premiumBrands = [
+  { name: "M.A.C", query: "MAC", products: 295 },
+  { name: "Clinique", query: "Clinique", products: 216 },
+  { name: "Estee Lauder", query: "Estee Lauder", products: 215 },
+  { name: "Too Faced", query: "Too Faced", products: 209 }
+];
+
+const cleanBeautyBrands = [
+  { name: "Plum", query: "Plum", products: 587 },
+  { name: "Mamaearth", query: "Mamaearth", products: 309 },
+  { name: "WOW Skin Science", query: "WOW Skin Science", products: 344 },
+  { name: "mCaffeine", query: "mCaffeine", products: 194 }
+];
+```
+
+---
+
+## 🎯 Top Product Slugs by Brand (For Featured Sections)
+
+### Colorbar (Top 3)
+```javascript
+const colorbarFeatured = [
+  "colorbar-24hrs-weightless-powder-foundation---fair-pf-1-95gm-bm0f60znod",
+  "colorbar-vegan-nail-lacquer---029-lovy-dovy-8ml-re0a_yt9el0m",
+  "colorbar-24hrs-weightless-liquid-foundation---fw-51-beige-25ml-i68j_5n5pz_"
+];
+```
+
+### Lakme (Top 3)
+```javascript
+const lakmeFeatured = [
+  "lakme-enrich-matte-lipstick---shade-wm10-47g-t1899xdfjvvt",
+  "lakme-forever-matte-liquid-lip-colour---red-wine-56ml-sk0grppp14hc",
+  "lakme-absolute-gel-stylist-nail-color---silhouette-12ml-ye6au_ygocmo"
+];
+```
+
+### SUGAR Cosmetics (Top 3)
+```javascript
+const sugarFeatured = [
+  "sugar-cosmetics-smudge-me-not-liquid-mini-lipstick---29-scarlet-starlet-11ml-5of31bspiyxc",
+  "sugar-matte-as-hell-crayon-lipstick---04-holly-golightly-nude-28g-x86imcddk5ak",
+  "sugar-rage-for-coverage-24hr-foundation---07-vanilla-latte-fair-golden-undertone-25ml-cukrbv3bpo9w"
+];
+```
+
+### M.A.C (Top 3)
+```javascript
+const macFeatured = [
+  "mac-satin-lipstick---twig-3g-nj_9qejkfwxi",
+  "mac-studio-fix-24-hour-smooth-wear-concealer---nc42-7ml-4kwwold_8ovt",
+  "mac-powder-kiss-liquid-lipcolour-lipstick---got-a-callback-5ml-dp9t5je7tey"
+];
+```
+
+### Plum (Top 3)
+```javascript
+const plumFeatured = [
+  "plum-avocado-smoothing-it-conditioner---200ml-jybsvhwyutsd",
+  "plum-green-tea-fragrance-free-toner---200ml-iifxyzmzzicr",
+  "plum-bright-years-under-eye-recovery-gel---15ml-hbzg6qd0eiw9"
+];
+```
+
+---
+
+## ⚠️ Brands to Avoid (Low/No Inventory)
+
+| Brand | Products | Reason |
+|-------|----------|--------|
+| NYX | 0 | No products found |
+| The Body Shop | 18 | Too few products |
+| Nykaa | 34 | Mixed results, not reliable |
+| Nivea | 58 | Limited selection |
+
+---
+
+## 💡 Brand Strategy Recommendations
+
+### By User Persona
+
+| Persona | Recommended Brands |
+|---------|-------------------|
+| **Budget Conscious** | Swiss Beauty, Insight Cosmetics, Flormar |
+| **Trend Seekers** | Makeup Revolution, SUGAR, MyGlamm |
+| **Natural/Clean Beauty** | Plum, Mamaearth, mCaffeine, WOW |
+| **Premium Shoppers** | M.A.C, Clinique, Estee Lauder, Too Faced |
+| **Everyday Makeup** | Lakme, Maybelline, Colorbar, Faces Canada |
+| **Professional Artists** | PAC, M.A.C, Makeup Revolution |
+
+### By Category Strength
+
+| Category | Top Brands |
+|----------|------------|
+| **Lipstick** | Lakme, SUGAR, M.A.C, Maybelline |
+| **Foundation** | Colorbar, Clinique, Estee Lauder |
+| **Eyeshadow** | Makeup Revolution, Too Faced |
+| **Nail Polish** | Colorbar, Faces Canada, Flormar |
+| **Skincare** | Plum, Mamaearth, WOW, Clinique |
+| **Brushes/Tools** | PAC, Makeup Revolution |
+
+---
+
+*Document generated from live API testing on Dec 13, 2025*

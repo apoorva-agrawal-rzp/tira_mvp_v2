@@ -13,16 +13,15 @@ interface Category {
   icon: LucideIcon;
   query: string;
   color: string;
-  productCount: string;
 }
 
 const categories: Category[] = [
-  { id: 'lips', name: 'Lips', icon: Sparkles, query: 'lipstick', color: 'bg-pink-100 dark:bg-pink-900/30', productCount: '5593' },
-  { id: 'skincare', name: 'Skincare', icon: Droplets, query: 'skincare', color: 'bg-purple-100 dark:bg-purple-900/30', productCount: '4580' },
-  { id: 'nails', name: 'Nails', icon: PaintBucket, query: 'nail polish', color: 'bg-rose-100 dark:bg-rose-900/30', productCount: '3828' },
-  { id: 'moisturizers', name: 'Moisturizers', icon: Droplet, query: 'moisturizer', color: 'bg-teal-100 dark:bg-teal-900/30', productCount: '2812' },
-  { id: 'fragrance', name: 'Fragrance', icon: Flower2, query: 'fragrance', color: 'bg-amber-100 dark:bg-amber-900/30', productCount: '2016' },
-  { id: 'eyes', name: 'Eyes', icon: Eye, query: 'eyeshadow', color: 'bg-blue-100 dark:bg-blue-900/30', productCount: '1279' },
+  { id: 'lips', name: 'Lips', icon: Sparkles, query: 'lipstick', color: 'bg-pink-100 dark:bg-pink-900/30' },
+  { id: 'skincare', name: 'Skincare', icon: Droplets, query: 'skincare', color: 'bg-purple-100 dark:bg-purple-900/30' },
+  { id: 'nails', name: 'Nails', icon: PaintBucket, query: 'nail polish', color: 'bg-rose-100 dark:bg-rose-900/30' },
+  { id: 'moisturizers', name: 'Moisturizers', icon: Droplet, query: 'moisturizer', color: 'bg-teal-100 dark:bg-teal-900/30' },
+  { id: 'fragrance', name: 'Fragrance', icon: Flower2, query: 'fragrance', color: 'bg-amber-100 dark:bg-amber-900/30' },
+  { id: 'eyes', name: 'Eyes', icon: Eye, query: 'eyeshadow', color: 'bg-blue-100 dark:bg-blue-900/30' },
 ];
 
 interface CategoryPreviewProps {
@@ -117,11 +116,29 @@ export function InteractiveCategoryGrid() {
     setLoadingPreview(false);
   };
 
+  // Pre-cache all categories on mount
   useEffect(() => {
+    const preCacheAll = async () => {
+      for (const cat of categories) {
+        if (!cacheRef.current[cat.id]) {
+          try {
+            const result = await invoke<unknown>('get_products', {
+              query: cat.query,
+              limit: 8,
+            });
+            const products = parseMCPProductResponse(result);
+            cacheRef.current[cat.id] = products;
+          } catch (err) {
+            console.error(`Failed to pre-cache ${cat.id}:`, err);
+          }
+        }
+      }
+    };
+    preCacheAll();
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, []);
+  }, [invoke]);
 
   const hoveredCategoryData = categories.find((c) => c.id === hoveredCategory);
 
@@ -154,7 +171,6 @@ export function InteractiveCategoryGrid() {
                 <cat.icon className="w-7 h-7 text-foreground" />
               </div>
               <span className="text-sm font-medium">{cat.name}</span>
-              <span className="text-xs text-muted-foreground">{cat.productCount}+ items</span>
             </button>
           );
         })}
