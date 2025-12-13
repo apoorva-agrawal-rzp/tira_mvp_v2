@@ -172,6 +172,7 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1; /* Enable ligatures */
   }
   
   .safe-area-bottom {
@@ -185,6 +186,29 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Premium Scrollbar for desktop */
+  @media (min-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: hsl(var(--muted) / 0.3);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: hsl(var(--primary) / 0.3);
+      border-radius: 10px;
+      border: 2px solid hsl(var(--background));
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: hsl(var(--primary) / 0.5);
+    }
   }
 }
 
@@ -297,5 +321,152 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+
+  /* Premium animations and effects */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.2);
+    }
+    50% {
+      box-shadow: 0 0 30px hsl(var(--primary) / 0.4);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--primary) / 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    background: hsl(var(--background) / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-primary {
+    background: hsl(var(--primary) / 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.6));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Smooth transitions */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Premium shadow effects */
+  .shadow-premium {
+    box-shadow: 
+      0 1px 2px 0 rgb(0 0 0 / 0.05),
+      0 10px 25px -5px hsl(var(--primary) / 0.1),
+      0 8px 10px -6px hsl(var(--primary) / 0.1);
+  }
+
+  .shadow-premium-lg {
+    box-shadow: 
+      0 2px 4px -2px rgb(0 0 0 / 0.05),
+      0 20px 50px -12px hsl(var(--primary) / 0.15),
+      0 12px 25px -8px hsl(var(--primary) / 0.1);
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-premium-lg;
+  }
+
+  /* Pulse animation for badges */
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(0.95);
+    }
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  /* Premium gradients */
+  .bg-gradient-premium {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)),
+      hsl(var(--primary) / 0.8)
+    );
+  }
+
+  .bg-gradient-premium-radial {
+    background: radial-gradient(
+      circle at top right,
+      hsl(var(--primary) / 0.1),
+      transparent 70%
+    );
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus visible styles */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
+  /* Image loading state */
+  img {
+    @apply transition-opacity duration-300;
+  }
+
+  img:not([src]), img[src=""] {
+    @apply opacity-0;
   }
 }

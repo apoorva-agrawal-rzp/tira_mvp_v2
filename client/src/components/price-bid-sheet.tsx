@@ -58,6 +58,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
   const [bidPrice, setBidPrice] = useState('');
   const [selectedDiscount, setSelectedDiscount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [paymentPending, setPaymentPending] = useState(false);
   const [bidId, setBidId] = useState<string | null>(null);
@@ -114,6 +115,8 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
     }
 
     setLoading(true);
+    setLoadingMessage('Initializing...');
+    
     try {
       // Complete Agentic Flow: Use tira_price_bidding
       // This sets up UPI Reserve Pay and automatic purchase when price drops
@@ -122,6 +125,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       let custId = customerId;
       if (!custId && user?.phone) {
         try {
+          setLoadingMessage('Checking payment methods...');
           const tokenResult = await invoke<{
             customer?: { id?: string };
           }>('get_token_masked_data', {
@@ -137,6 +141,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       }
 
       // First attempt - may ask for address confirmation
+      setLoadingMessage('Verifying delivery address...');
       let result = await invoke<{
         success?: boolean;
         status?: string;
@@ -193,13 +198,23 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       if (result?.status === 'address_confirmation_required') {
         // Show address to user briefly
         if (result.address) {
+          setLoadingMessage(`Confirming address: ${result.address.city}`);
           toast({
-            title: 'Using delivery address',
+            title: '📍 Using delivery address',
             description: `${result.address.name}, ${result.address.city}`,
           });
         }
 
+        // Wait a moment for user to see the address
+        await new Promise(resolve => setTimeout(resolve, 800));
+
         // Retry with addressConfirmed: true
+        setLoadingMessage('Setting up automatic purchase...');
+        toast({
+          title: '⏳ Creating price bid...',
+          description: 'Setting up automatic purchase',
+        });
+
         result = await invoke<{
           success?: boolean;
           status?: string;
@@ -227,6 +242,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
             id?: string;
           };
           message?: string;
+          error?: string;
         }>('tira_price_bidding', {
           productSlug: product.slug,
           productName: product.name,
@@ -249,8 +265,70 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       setToolResponse(result);
       console.log('[PriceBid] Result:', result);
 
+      // Check for specific errors and handle them
       if (!result?.success) {
-        throw new Error(result?.message || 'Failed to create price bid');
+        const errorMsg = result?.message || result?.error || 'Failed to create price bid';
+        
+        // If checkout issue, offer fallback to free price monitoring
+        if (errorMsg.includes('Checkout') || errorMsg.includes('order ID')) {
+          toast({
+            title: '⚠️ Price Bidding Setup Failed',
+            description: 'There was an issue with the checkout. Try using Free Price Monitoring instead.',
+            variant: 'destructive',
+          });
+          
+          // Offer free price monitoring as fallback
+          const useFreeMonitoring = confirm(
+            `Price bidding setup failed due to a technical issue.\n\n` +
+            `Would you like to use FREE Price Monitoring instead?\n\n` +
+            `• You'll get WhatsApp alerts when price drops to ₹${finalBidPrice}\n` +
+            `• No payment setup required\n` +
+            `• You can manually purchase when notified\n\n` +
+            `Click OK to use Free Price Monitoring, or Cancel to retry.`
+          );
+          
+          if (useFreeMonitoring) {
+            try {
+              await invoke('tira_register_price_monitor', {
+                productSlug: product.slug,
+                targetPrice: finalBidPrice,
+                sessionCookie: session,
+                notificationMethod: 'whatsapp',
+                notificationDestination: user.phone,
+              });
+              
+              toast({
+                title: '✅ Price Monitoring Activated!',
+                description: `You'll get WhatsApp alerts when price drops to ₹${finalBidPrice}`,
+              });
+              
+              // Store as monitoring bid
+              addBid({
+                id: `monitor-${Date.now()}`,
+                bidId: `monitor-${Date.now()}`,
+                product: {
+                  name: product.name,
+                  brand: product.brand,
+                  image: product.image,
+                  slug: product.slug,
+                },
+                bidPrice: finalBidPrice,
+                currentPrice: currentPrice,
+                status: 'monitoring',
+                createdAt: new Date().toISOString(),
+              });
+              
+              onClose();
+              setLocation('/wishlist');
+              return;
+            } catch (monitorErr) {
+              console.error('Free monitoring also failed:', monitorErr);
+              throw new Error('Both price bidding and free monitoring failed. Please try again later.');
+            }
+          }
+        }
+        
+        throw new Error(errorMsg);
       }
 
       const bidIdValue = result?.bid?.id;
@@ -337,13 +415,15 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
       }
     } catch (err) {
       console.error('Price bid error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Please try again later';
       toast({
         title: 'Failed to submit bid',
-        description: 'Please try again later',
+        description: errorMsg,
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -529,7 +609,7 @@ export function PriceBidSheet({ product, onClose }: PriceBidSheetProps) {
               className="w-full py-6 text-base font-semibold"
               data-testid="submit-bid-button"
             >
-              {loading ? 'Submitting...' : 'SUBMIT PRICE BID'}
+              {loading ? loadingMessage || 'Submitting...' : 'SUBMIT PRICE BID'}
             </Button>
           </>
         )}

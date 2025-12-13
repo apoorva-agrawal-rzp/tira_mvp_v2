@@ -4,21 +4,23 @@ import { TiraLogo } from '@/components/tira-logo';
 import { BottomNav } from '@/components/bottom-nav';
 import { ProductCard, ProductCardSkeleton } from '@/components/product-card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useMCP } from '@/hooks/use-mcp';
 import { useAppStore } from '@/lib/store';
 import { parseMCPProductResponse } from '@/lib/mcp-parser';
 import { cacheProducts } from '@/lib/product-cache';
 import type { Product } from '@shared/schema';
-import { Search, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap } from 'lucide-react';
+import { Search, Sparkles, ShoppingBag, Scissors, Droplets, Bath, Palette, ChevronRight, Zap, TrendingUp, Star, Gift, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const categories = [
-  { id: 'makeup', name: 'Makeup', icon: Palette, query: 'makeup lipstick', color: 'bg-pink-100 dark:bg-pink-900/30' },
-  { id: 'skincare', name: 'Skincare', icon: Sparkles, query: 'skincare serum', color: 'bg-purple-100 dark:bg-purple-900/30' },
-  { id: 'hair', name: 'Hair Care', icon: Scissors, query: 'shampoo hair', color: 'bg-blue-100 dark:bg-blue-900/30' },
-  { id: 'fragrance', name: 'Fragrance', icon: Droplets, query: 'perfume fragrance', color: 'bg-amber-100 dark:bg-amber-900/30' },
-  { id: 'bath', name: 'Bath & Body', icon: Bath, query: 'body lotion', color: 'bg-teal-100 dark:bg-teal-900/30' },
-  { id: 'tools', name: 'Tools', icon: ShoppingBag, query: 'beauty tools brush', color: 'bg-rose-100 dark:bg-rose-900/30' },
+  { id: 'makeup', name: 'Makeup', icon: Palette, query: 'makeup lipstick', gradient: 'from-pink-500 to-rose-500' },
+  { id: 'skincare', name: 'Skincare', icon: Sparkles, query: 'skincare serum', gradient: 'from-purple-500 to-pink-500' },
+  { id: 'hair', name: 'Hair Care', icon: Scissors, query: 'shampoo hair', gradient: 'from-blue-500 to-cyan-500' },
+  { id: 'fragrance', name: 'Fragrance', icon: Droplets, query: 'perfume fragrance', gradient: 'from-amber-500 to-orange-500' },
+  { id: 'bath', name: 'Bath & Body', icon: Bath, query: 'body lotion', gradient: 'from-teal-500 to-emerald-500' },
+  { id: 'tools', name: 'Tools', icon: ShoppingBag, query: 'beauty tools brush', gradient: 'from-rose-500 to-pink-500' },
 ];
 
 export default function HomePage() {
@@ -52,60 +54,135 @@ export default function HomePage() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 left-0 right-0 bg-background/95 backdrop-blur-sm z-50 px-4 py-3 border-b border-border shadow-sm">
-        <div className="flex items-center gap-3">
-          <TiraLogo size="md" />
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-20">
+      {/* Premium Header */}
+      <header className="sticky top-0 left-0 right-0 bg-background/80 backdrop-blur-xl z-50 border-b border-border/50 shadow-sm">
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-3 mb-3">
+            <TiraLogo size="lg" />
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative rounded-full hover:bg-primary/10"
+              data-testid="notifications-button"
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation('/account/bag')}
+              className="relative rounded-full hover:bg-primary/10"
+              data-testid="bag-button"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold shadow-lg">
+                  {cartCount}
+                </span>
+              )}
+            </Button>
+          </div>
+          
+          {/* Search Bar */}
           <button
             onClick={() => setLocation('/search')}
-            className="flex-1 bg-muted rounded-full px-4 py-2.5 text-left text-muted-foreground flex items-center gap-2 hover-elevate"
+            className="w-full bg-muted/50 backdrop-blur-sm rounded-2xl px-5 py-3.5 text-left text-muted-foreground flex items-center gap-3 hover:bg-muted/70 transition-all duration-300 hover:shadow-lg border border-border/50"
             data-testid="search-button-home"
           >
-            <Search className="w-4 h-4" />
-            <span className="text-sm">Search beauty products...</span>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Search className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium">Search beauty products...</span>
+              <p className="text-xs text-muted-foreground/70">Makeup • Skincare • Haircare</p>
+            </div>
           </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation('/account/bag')}
-            className="relative"
-            data-testid="bag-button"
-          >
-            <ShoppingBag className="w-5 h-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-medium">
-                {cartCount}
-              </span>
-            )}
-          </Button>
         </div>
       </header>
 
       <div className="p-4 space-y-6">
-        <section className="bg-gradient-to-r from-primary to-pink-400 rounded-2xl p-6 text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-5 h-5" />
-              <span className="text-sm font-medium opacity-90">Exclusive Feature</span>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Buy at Your Own Price</h2>
-            <p className="opacity-90 mb-4 text-sm max-w-xs">
-              Set your target price & get auto-purchased when price drops!
+        {/* Hero Section - Buy at Your Price */}
+        <section className="relative overflow-hidden rounded-3xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-pink-500 to-purple-600 opacity-95" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIG9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-20" />
+          
+          <div className="relative z-10 p-6">
+            <Badge className="mb-3 bg-white/20 text-white border-white/30 backdrop-blur-sm">
+              <Zap className="w-3 h-3 mr-1" />
+              Exclusive Feature
+            </Badge>
+            
+            <h2 className="text-3xl font-bold mb-2 text-white">
+              Buy at Your Own Price
+            </h2>
+            <p className="text-white/90 mb-5 text-sm leading-relaxed max-w-md">
+              Set your target price & get auto-purchased when price drops. Powered by AI price monitoring.
             </p>
-            <Button
-              onClick={() => setLocation('/search')}
-              className="bg-white text-primary hover:bg-white/90"
-            >
-              Try Now
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setLocation('/search')}
+                size="lg"
+                className="bg-white text-primary hover:bg-white/90 font-semibold shadow-xl"
+              >
+                Try Now
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-white/30 text-white hover:bg-white/10 backdrop-blur-sm"
+                onClick={() => setLocation('/wishlist')}
+              >
+                My Bids
+              </Button>
+            </div>
           </div>
-          <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full" />
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full" />
+
+          {/* Decorative Elements */}
+          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute -right-5 top-10 w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl" />
         </section>
 
+        {/* User Greeting */}
+        {user && (
+          <Card className="p-5 bg-gradient-to-br from-primary/5 to-purple/5 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Welcome back,</p>
+                <p className="font-bold text-xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                  {user.name || user.phone}
+                </p>
+              </div>
+              <Button 
+                variant="default" 
+                onClick={() => setLocation('/wishlist')}
+                className="gap-2 shadow-lg"
+              >
+                <Star className="w-4 h-4" />
+                My Wishlist
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Categories Section */}
         <section>
-          <h3 className="font-bold text-lg mb-4">Shop by Category</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-xl">Shop by Category</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation('/search')}
+              className="text-primary"
+            >
+              View All
+            </Button>
+          </div>
+          
           <div className="grid grid-cols-3 gap-3">
             {categories.map((cat) => {
               const Icon = cat.icon;
@@ -113,38 +190,51 @@ export default function HomePage() {
                 <button
                   key={cat.id}
                   onClick={() => setLocation(`/search?q=${encodeURIComponent(cat.query)}`)}
-                  className={cn(
-                    'rounded-xl p-4 text-center transition-all hover-elevate',
-                    cat.color
-                  )}
+                  className="group relative overflow-hidden rounded-2xl aspect-square transition-all duration-300 hover:scale-105 hover:shadow-xl"
                   data-testid={`category-${cat.id}`}
                 >
-                  <div className="w-12 h-12 rounded-full bg-background/60 dark:bg-background/30 flex items-center justify-center mx-auto mb-2">
-                    <Icon className="w-6 h-6 text-foreground" />
+                  <div className={cn(
+                    'absolute inset-0 bg-gradient-to-br opacity-90 group-hover:opacity-100 transition-opacity',
+                    cat.gradient
+                  )} />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  
+                  <div className="relative z-10 h-full flex flex-col items-center justify-center p-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-white text-center leading-tight">
+                      {cat.name}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium">{cat.name}</span>
                 </button>
               );
             })}
           </div>
         </section>
 
+        {/* Trending Products */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-lg">Trending Now</h3>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="font-bold text-xl">Trending Now</h3>
+            </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setLocation('/search?q=bestseller')}
-              className="text-primary"
+              className="text-primary gap-1"
             >
               View All
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
           
           {loading ? (
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
               {[1, 2, 3, 4].map((i) => (
                 <ProductCardSkeleton key={i} compact />
               ))}
@@ -158,52 +248,59 @@ export default function HomePage() {
           )}
         </section>
 
-        <section className="bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/30 dark:to-purple-950/30 rounded-2xl p-5">
-          <h3 className="font-bold mb-4">How "Buy at Your Price" Works</h3>
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold">
-                1
+        {/* How It Works */}
+        <section>
+          <Card className="overflow-hidden border-2">
+            <div className="bg-gradient-to-r from-primary/10 via-purple/10 to-pink/10 px-5 py-4 border-b">
+              <div className="flex items-center gap-2 mb-1">
+                <Gift className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-lg">How "Buy at Your Price" Works</h3>
               </div>
-              <div>
-                <p className="font-medium">Set Your Target Price</p>
-                <p className="text-sm text-muted-foreground">Choose any price lower than current</p>
-              </div>
+              <p className="text-sm text-muted-foreground">Save money with our AI-powered price bidding</p>
             </div>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold">
-                2
-              </div>
-              <div>
-                <p className="font-medium">We Monitor 24/7</p>
-                <p className="text-sm text-muted-foreground">Our AI tracks prices in real-time</p>
-              </div>
+            
+            <div className="p-5 space-y-5">
+              {[
+                {
+                  step: '1',
+                  title: 'Set Your Target Price',
+                  desc: 'Choose any price lower than current market price',
+                  icon: '🎯'
+                },
+                {
+                  step: '2',
+                  title: 'We Monitor 24/7',
+                  desc: 'Our AI tracks prices in real-time across the platform',
+                  icon: '🤖'
+                },
+                {
+                  step: '3',
+                  title: 'Auto-Purchase',
+                  desc: 'Order placed automatically using secure UPI Reserve Pay',
+                  icon: '⚡'
+                }
+              ].map((item) => (
+                <div key={item.step} className="flex gap-4 group">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+                      {item.step}
+                    </div>
+                    <div className="absolute -right-1 -bottom-1 text-2xl">
+                      {item.icon}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold mb-1">{item.title}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold">
-                3
-              </div>
-              <div>
-                <p className="font-medium">Auto-Purchase When Price Drops</p>
-                <p className="text-sm text-muted-foreground">Using secure UPI Reserve Pay</p>
-              </div>
-            </div>
-          </div>
+          </Card>
         </section>
 
-        {user && (
-          <section className="bg-muted/50 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Welcome back,</p>
-                <p className="font-bold text-lg">{user.name || user.phone}</p>
-              </div>
-              <Button variant="outline" onClick={() => setLocation('/wishlist')}>
-                My Wishlist
-              </Button>
-            </div>
-          </section>
-        )}
+        {/* Bottom Spacing */}
+        <div className="h-4" />
       </div>
 
       <BottomNav active="home" />
